@@ -118,6 +118,7 @@ Not on GitHub? Sign in and add versions by hand on the site (open your entry, th
 | GET    | `/firmware.json`                     | anyone              | everything (cached 5 min, ETag); filters: `device`, `kind`, `tag`, `author`, `base`, `q`                            |
 | GET    | `/catalog.json`                      | anyone              | The Firmware Hub format: `firmwares[]` (`pkg` is a direct URL) + `stock`; same filters                              |
 | GET    | `/api/entries/:id`                   | anyone              | one entry plus `history` (all versions)                                                                             |
+| GET    | `/dl/:id/:file`                      | anyone              | a package one of the listing's versions names, with CORS on, for browser apps (GitHub's downloads have no CORS)     |
 | GET    | `/api/entries/:id/releases`          | anyone              | version history                                                                                                     |
 | GET    | `/api/ids`                           | anyone              | every device ID in use and which listings use it; `?check=FM-1_745` says whether one is free and suggests free ones |
 | GET    | `/api/me`                            | session             | you, plus entries you can manage                                                                                    |
