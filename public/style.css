@@ -1110,36 +1110,92 @@ form.edit {
 .foot {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 24px 16px 48px;
+  padding: 28px 16px 48px;
   border-top: 1px solid var(--line);
-  color: var(--muted);
+  display: grid;
+  gap: 14px;
   font-size: 14px;
+  line-height: 1.5;
+  color: var(--muted);
 }
 
 .foot p {
-  margin: 0 0 8px;
+  margin: 0;
 }
 
-.foot .links {
+.foot a {
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.foot a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.foot-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 16px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 24px;
+}
+
+.foot .credit a {
+  font-weight: 600;
 }
 
 .foot .heart {
   color: var(--c1);
 }
 
+.foot-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+}
+
+.foot-links a {
+  color: var(--muted);
+}
+
+.foot-links a:hover {
+  color: var(--ink);
+}
+
+.foot-links .mono {
+  font-size: 13px;
+}
+
 .foot .fine {
-  font-size: 12px;
+  flex: 1 1 min(100%, 420px);
+  max-width: 72ch;
+}
+
+.foot .fine a {
+  color: var(--muted);
+  text-decoration: underline;
+  text-decoration-color: var(--line);
+  text-underline-offset: 3px;
+}
+
+.foot .fine a:hover {
+  color: var(--ink);
+  text-decoration-color: currentColor;
 }
 
 .foot .report {
-  margin: 16px 0 0;
+  flex: none;
+  padding: 6px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  font-weight: 600;
 }
 
-.foot .report a {
-  font-weight: 600;
+.foot .report:hover {
+  border-color: var(--c1);
+  text-decoration: none;
 }
 
 @media (max-width: 560px) {
