@@ -725,7 +725,8 @@ const FIELDS = ['kind', 'name', 'author', 'authorUrl', 'repo', 'homepage', 'desc
 function form(e) {
   if (!ME.user) return signInSheet(e ? 'Sign in to edit this listing.' : 'Sign in to add a project.')
   if (e && !canEdit(e)) return detail(e)
-  const v = e || { kind: 'firmware', devices: ['fm1'], tags: [], links: [], managers: [] }
+  // a new listing starts as the signed-in maker's own: their GitHub name and profile as the author
+  const v = e || { kind: 'firmware', devices: ['fm1'], tags: [], links: [], managers: [], author: ME.user.login, authorUrl: `https://github.com/${ME.user.login}` }
   const checks = (name, opts, sel) => `<div class="checks">${opts.map(([val, label]) => `<label><input type="checkbox" name="${name}" value="${esc(val)}" ${sel.includes(val) ? 'checked' : ''} />${esc(label)}</label>`).join('')}</div>`
   // the suggested tags for the kind, then this entry's own and other makers' popular ones
   const tagOpts = (kind, mine = []) => {
