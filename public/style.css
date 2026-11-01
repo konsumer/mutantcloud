@@ -1116,6 +1116,20 @@ form.edit {
   font-size: 14px;
 }
 
+.foot p {
+  margin: 0 0 8px;
+}
+
+.foot .links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}
+
+.foot .heart {
+  color: var(--c1);
+}
+
 .foot .fine {
   font-size: 12px;
 }

@@ -196,7 +196,7 @@ async function main() {
   }
   const index = JSON.parse(await readFile(INDEX, 'utf8').catch(() => '{}'))
   // only what's missing: never one that's already here, one the maker's picture covers, or one that failed
-  // before (unless --update, which also re-shoots firmware whose package changed)
+  // before with the same package (--update also retries those, and re-shoots firmware whose package changed)
   let covered = 0
   const todo = [...byEntry.values()].filter((r) => {
     if (ONLY.length) return ONLY.includes(r.entry)
@@ -207,7 +207,8 @@ async function main() {
       covered++
       return false
     }
-    return !had?.failed || UPDATE
+    // a failure is only retried for a new package (a new build gets a fresh try) or with --update
+    return !had?.failed || UPDATE || had.sha256 !== r.sha256
   })
   if (covered) log(`(${covered} have the maker's own picture, so no screenshot is needed)`)
   log(`${byEntry.size} firmwares with packages, ${todo.length} to shoot (${JOBS} at a time, ${MS} ms each)`)
