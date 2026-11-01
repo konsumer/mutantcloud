@@ -1125,6 +1125,7 @@ form.edit {
 
 .foot a {
   color: var(--ink);
+  font-weight: 600;
   text-decoration: none;
 }
 
@@ -1141,10 +1142,6 @@ form.edit {
   gap: 10px 24px;
 }
 
-.foot .credit a {
-  font-weight: 600;
-}
-
 .foot .heart {
   color: var(--c1);
 }
@@ -1155,14 +1152,6 @@ form.edit {
   gap: 4px 20px;
 }
 
-.foot-links a {
-  color: var(--muted);
-}
-
-.foot-links a:hover {
-  color: var(--ink);
-}
-
 .foot-links .mono {
   font-size: 13px;
 }
@@ -1170,18 +1159,6 @@ form.edit {
 .foot .fine {
   flex: 1 1 min(100%, 420px);
   max-width: 72ch;
-}
-
-.foot .fine a {
-  color: var(--muted);
-  text-decoration: underline;
-  text-decoration-color: var(--line);
-  text-underline-offset: 3px;
-}
-
-.foot .fine a:hover {
-  color: var(--ink);
-  text-decoration-color: currentColor;
 }
 
 .foot .report {
