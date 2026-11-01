@@ -700,6 +700,34 @@ dialog::backdrop {
   cursor: pointer;
 }
 
+.picprev {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.picprev[hidden] {
+  display: none;
+}
+
+.picprev img {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--soft);
+}
+
+.picprev.bad img {
+  display: none;
+}
+
+.picprev.bad small {
+  color: var(--c1);
+}
+
 .shots {
   display: flex;
   gap: 10px;

@@ -274,11 +274,29 @@ function filtered() {
   return list.sort((a, b) => by(a, b) || a.name.localeCompare(b.name))
 }
 
+// one picture per listing: the owner's (or maker card), and only if that fails to load, the emulator screenshot
+const fallback = (e) => (e.screen && !e.coverIsScreen ? `data-screen="${safe(e.screen)}"` : '')
+
+window.picFail = (img) => {
+  const pic = img.closest('.pic')
+  if (img.dataset.screen) {
+    img.src = img.dataset.screen
+    delete img.dataset.screen
+    img.classList.add('screen')
+    pic?.classList.add('screen')
+    pic?.querySelector('.bg')?.remove()
+    return
+  }
+  if (!pic) return img.closest('.shots')?.remove()
+  pic.classList.add('none')
+  pic.innerHTML = `<span>${esc(pic.dataset.letter || '')}</span>`
+}
+
 function card(e) {
   const dev = e.devices.map((d) => `<a class="badge dev flink" data-f href="${esc(filterUrl({ device: d }))}" title="All ${esc(DATA.devices[d] || d)} ${state.kind === 'tool' ? 'tools' : 'firmware'}">${esc(DATA.devices[d] || d)}</a>`).join('')
   const ver = e.release?.version ? `<span class="mono">${esc(e.release.version)}</span>` : ''
   const released = e.release?.date ? `Released ${when(e.release.date)}` : e.updated ? `Updated ${when(e.updated)}` : ''
-  const pic = e.cover ? `<a class="pic${e.coverIsScreen ? ' screen' : ''}" href="#/p/${esc(e.id)}" tabindex="-1" aria-hidden="true">${e.coverIsScreen ? '' : `<img class="bg" src="${safe(e.cover)}" alt="" loading="lazy" decoding="async" />`}<img class="fg" src="${safe(e.cover)}" alt="" loading="lazy" decoding="async" onerror="this.parentNode.classList.add('none');this.parentNode.replaceChildren()" /></a>` : `<a class="pic none" href="#/p/${esc(e.id)}" tabindex="-1" aria-hidden="true"><span>${esc(e.name.slice(0, 1))}</span></a>`
+  const pic = e.cover ? `<a class="pic${e.coverIsScreen ? ' screen' : ''}" href="#/p/${esc(e.id)}" tabindex="-1" aria-hidden="true" data-letter="${esc(e.name.slice(0, 1))}">${e.coverIsScreen ? '' : `<img class="bg" src="${safe(e.cover)}" alt="" loading="lazy" decoding="async" />`}<img class="fg" src="${safe(e.cover)}" ${fallback(e)} alt="" loading="lazy" decoding="async" onerror="picFail(this)" /></a>` : `<a class="pic none" href="#/p/${esc(e.id)}" tabindex="-1" aria-hidden="true"><span>${esc(e.name.slice(0, 1))}</span></a>`
   return `<article class="card" style="--h:${hue(e.id)}">
     ${pic}
     <div class="head">
@@ -437,7 +455,7 @@ function detail(e) {
   open(
     `<h2 id="dlg-title">${esc(e.name)}</h2>
     <p class="by">by ${authorLink(e)}${e.authorUrl ? ` · <a href="${safe(e.authorUrl)}" target="_blank" rel="noopener">${e.github ? 'GitHub' : 'website'} ↗</a>` : ''}</p>
-    ${e.cover ? `<div class="shots"><img class="shot${e.coverIsScreen ? ' screen' : ''}" src="${safe(e.cover)}" alt="" loading="lazy" onerror="this.remove()" />${e.screen && !e.coverIsScreen ? `<img class="shot screen" src="${safe(e.screen)}" alt="Its screen, in the emulator" loading="lazy" onerror="this.remove()" />` : ''}</div>` : ''}
+    ${e.cover ? `<div class="shots"><img class="shot${e.coverIsScreen ? ' screen' : ''}" src="${safe(e.cover)}" ${fallback(e)} alt="" loading="lazy" onerror="picFail(this)" /></div>` : ''}
     ${e.description ? `<p class="lead">${esc(e.description)}</p>` : ''}
     <div class="actions">${emuFor(e) ? `<a class="btn primary" href="#/try/${esc(e.id)}">▶ Try it in your browser</a>` : ''}${links.map((l, i) => ext(l.url, l.label, i === 0 && !emuFor(e) ? 'btn primary' : 'btn')).join('')}<button type="button" class="btn ghost" data-copy="${esc(pageUrl(e))}" title="Its own page: shows its picture when you share it">Copy link</button></div>
     ${f.length ? `<h3>Files${e.release?.version ? ` <span class="mono by">${esc(e.release.version)}</span>` : ''}</h3>${fileList(f)}` : ''}
@@ -751,7 +769,8 @@ function form(e) {
       <div class="row2">
         <label class="field"><span>License</span><input name="license" maxlength="40" placeholder="GPL-3.0, MIT, closed…" value="${esc(v.license || '')}" /></label>
         <label class="field"><span>Picture URL</span><input name="image" placeholder="https://…png" value="${esc(ownPic(v))}" />
-          <small>Your own picture for the card. Empty: your fmhub.json card image, else a screenshot from the emulator.</small></label>
+          <small>Your own picture for the card. Empty: your fmhub.json card image, else a screenshot from the emulator.</small>
+          <span class="picprev" id="picprev" hidden><img alt="" /><small></small></span></label>
       </div>
       <div class="field"><span>Links</span><div class="links-ed" id="links">${(v.links.length ? v.links : [{}]).map(linkRow).join('')}</div>
         <button type="button" class="btn small" id="addlink" style="justify-self:start">+ link</button>
@@ -799,6 +818,29 @@ function form(e) {
     syncPrimary()
   }
   $('#addtag').onclick = addTags
+  // show the picture as it's typed, so a broken link is caught before saving
+  const prev = $('#picprev')
+  const showPic = () => {
+    const url = f.image.value.trim()
+    prev.hidden = !url
+    if (!url) return
+    const img = prev.querySelector('img')
+    const note = prev.querySelector('small')
+    prev.classList.remove('bad')
+    note.textContent = 'Loading…'
+    img.onload = () => (note.textContent = `${img.naturalWidth}×${img.naturalHeight}`)
+    img.onerror = () => {
+      prev.classList.add('bad')
+      note.textContent = "Can't load this picture: check the link. Until it works, the card shows the emulator screenshot."
+    }
+    img.src = url
+  }
+  let picTimer
+  f.image.oninput = () => {
+    clearTimeout(picTimer)
+    picTimer = setTimeout(showPic, 400)
+  }
+  showPic()
   $('#newtag').onkeydown = (ev) => {
     if (ev.key === 'Enter' || ev.key === ',') {
       ev.preventDefault()
