@@ -1,0 +1,59 @@
+name: mutant.cloud publish
+description: Tell mutant.cloud about a new release, so your listing (and its version history) updates right away.
+branding:
+  icon: upload-cloud
+  color: purple
+inputs:
+  tag:
+    description: Release tag. Defaults to the release that triggered the run, or the pushed tag.
+    required: false
+    default: ''
+  name:
+    description: Display name, only used the first time (when your repo isn't listed yet).
+    required: false
+    default: ''
+  devices:
+    description: Comma-separated devices it runs on (fm1, smk37). Only used the first time.
+    required: false
+    default: ''
+  hub:
+    description: Hub URL
+    required: false
+    default: https://mutant.cloud
+outputs:
+  url:
+    description: Your listing on mutant.cloud
+    value: ${{ steps.publish.outputs.url }}
+runs:
+  using: composite
+  steps:
+    - id: publish
+      shell: bash
+      env:
+        TAG: ${{ inputs.tag || github.event.release.tag_name || github.ref_name }}
+        NAME: ${{ inputs.name }}
+        DEVICES: ${{ inputs.devices }}
+        HUB: ${{ inputs.hub }}
+        # this run's own token (expires with the job, covers only this repo): lets the hub read your releases
+        RUN_TOKEN: ${{ github.token }}
+      run: |
+        if [ -z "$ACTIONS_ID_TOKEN_REQUEST_URL" ]; then
+          echo "::error::Add 'permissions: id-token: write' to your workflow so it can prove which repo it is."
+          exit 1
+        fi
+        TOKEN=$(curl -fsS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=mutant.cloud" | jq -r .value)
+        BODY=$(jq -n --arg tag "$TAG" --arg name "$NAME" --arg devices "$DEVICES" '
+          {tag: $tag}
+          + (if ($name + $devices) == "" then {} else {listing: ({}
+              + (if $name == "" then {} else {name: $name} end)
+              + (if $devices == "" then {} else {devices: ($devices | split(",") | map(gsub("\\s"; "")))} end))} end)')
+        RES=$(curl -sS -w '\n%{http_code}' -X POST "$HUB/api/publish" -H "Authorization: Bearer $TOKEN" -H "X-GitHub-Token: $RUN_TOKEN" -H 'content-type: application/json' -d "$BODY")
+        CODE=$(echo "$RES" | tail -n1)
+        OUT=$(echo "$RES" | sed '$d')
+        echo "$OUT"
+        if [ "$CODE" -ge 300 ]; then
+          echo "::error::mutant.cloud said $CODE: $(echo "$OUT" | jq -r .error 2>/dev/null)"
+          exit 1
+        fi
+        echo "url=$(echo "$OUT" | jq -r .url)" >> "$GITHUB_OUTPUT"
+        echo "::notice::Listed at $(echo "$OUT" | jq -r .url)"

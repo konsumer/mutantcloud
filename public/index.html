@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>mutant.cloud · FM1 & SMK-37 firmware hub</title>
+    <meta name="description" content="Every firmware and tool for the M-VAVE FM1, SMK-37 and friends. Self-serve: makers sign in with GitHub and manage their own listings." />
+    <meta property="og:title" content="mutant.cloud" />
+    <meta property="og:description" content="Every firmware and tool for the M-VAVE FM1, SMK-37 and friends." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://mutant.cloud/" />
+    <meta property="og:site_name" content="mutant.cloud" />
+    <meta property="og:image" content="https://mutant.cloud/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="mutant.cloud: every firmware and tool for your FM1, SMK-37 and friends" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="mutant.cloud" />
+    <meta name="twitter:description" content="Every firmware and tool for the M-VAVE FM1, SMK-37 and friends." />
+    <meta name="twitter:image" content="https://mutant.cloud/og.png" />
+    <meta name="theme-color" content="#15131b" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="alternate" type="application/json" href="/firmware.json" title="All entries as JSON" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <header class="top">
+      <a class="logo" href="/" aria-label="mutant.cloud home">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><use href="#blob" /></svg>
+        <span>mutant<b>.cloud</b></span>
+      </a>
+      <nav class="nav">
+        <a class="ghost make" href="#/make"><span class="long">Make your own</span><span class="short">Make one</span></a>
+        <a class="ghost" href="/firmware.json" title="The whole list as JSON">JSON</a>
+        <span id="account"></span>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <h1>Every firmware &amp; tool for your <span class="hl a">FM1</span>, <span class="hl b">SMK-37</span> &amp; friends.</h1>
+        <p class="sub" id="stats">Loading…</p>
+      </section>
+
+      <section class="controls" aria-label="Filter">
+        <label class="search">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="11" cy="11" r="7" />
+            <path d="m20 20-4-4" />
+          </svg>
+          <input id="q" type="search" placeholder="Search names, makers, sounds…" autocomplete="off" />
+        </label>
+        <div class="seg" id="kind" role="group" aria-label="Kind"></div>
+        <div class="seg" id="device" role="group" aria-label="Device"></div>
+        <select id="sort" aria-label="Sort">
+          <option value="updated">Recently updated</option>
+          <option value="added">Recently added</option>
+          <option value="name">A–Z</option>
+        </select>
+      </section>
+      <div class="tags" id="tags" role="group" aria-label="Tags"></div>
+
+      <p class="count" id="count" role="status"></p>
+      <section class="grid" id="grid"></section>
+    </main>
+
+    <footer class="foot">
+      <p>Made for makers. Is something yours? <a href="#/mine">Sign in with GitHub</a> and manage it yourself, no emails needed. The list is open: <a href="/firmware.json">/firmware.json</a> (CORS on, takes the same filters as the links here, like <code>?author=konsumer&amp;device=fm1</code>), and <a href="/catalog.json">/catalog.json</a> in The Firmware Hub's format, one verified package per row.</p>
+      <p class="fine">Seeded from <a href="https://thefirmwarehub.com/">The Firmware Hub</a>, <a href="https://fm1-editor.com/firmware/">FM1 Editor</a>, <a href="https://stanleygurvich.github.io/FMDB_FM1_FirmwareDatabase/">FMDB</a> and GitHub, then kept up by the makers themselves. Not affiliated with M-VAVE. Firmware is installed at your own risk.</p>
+    </footer>
+
+    <dialog id="dlg" aria-labelledby="dlg-title">
+      <div id="dlg-body"></div>
+    </dialog>
+
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <symbol id="blob" viewBox="0 0 32 32">
+        <path fill="var(--c1)" d="M8 22c-4 0-6-3-6-6s3-6 6-6c1-4 4-7 8-7 5 0 8 4 8 8 4 0 6 3 6 6s-3 5-6 5H8z" />
+        <circle cx="12" cy="15" r="2.4" fill="#fff" />
+        <circle cx="12.6" cy="15.4" r="1.1" fill="#1d1a24" />
+        <circle cx="20" cy="13" r="3.2" fill="#fff" />
+        <circle cx="20.8" cy="13.6" r="1.5" fill="#1d1a24" />
+        <path d="M13 21q4 3 8-1" stroke="#1d1a24" stroke-width="1.6" fill="none" stroke-linecap="round" />
+      </symbol>
+    </svg>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,29 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "mutantcloud",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-10-01",
+  "account_id": "84b00898daeb43b9b91b330d60ed4778",
+  "assets": {
+    "directory": "public",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*", "/auth/*", "/firmware.json", "/catalog.json"]
+  },
+  // ids are filled in by `npm run init`. "remote": true makes `npm run start` (local server) use the real database + sessions
+  "d1_databases": [{ "binding": "DB", "database_name": "mutantcloud", "database_id": "267896ce-ee78-47ac-8742-2493abf65775", "migrations_dir": "migrations", "remote": true }],
+  "kv_namespaces": [{ "binding": "SESSIONS", "id": "98005e4aa4614ed286217dce9ceffee9", "remote": true }],
+  "vars": {
+    // GitHub logins that can edit/hide anything
+    "ADMINS": "konsumer"
+  },
+  "routes": [{ "pattern": "mutant.cloud", "custom_domain": true }],
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": { "enabled": true },
+  // the release watcher: a few repos every 10 minutes (src/worker.js watch())
+  "triggers": { "crons": ["*/10 * * * *"] },
+  // the deployed version, so cached lists start fresh on every deploy
+  "version_metadata": { "binding": "CF_VERSION_METADATA" }
+  // secrets (set by npm run init): GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET (no GitHub token needed: CI publishes send their run's own)
+}

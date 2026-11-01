@@ -1,0 +1,20 @@
+{
+  "name": "mutantcloud",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The FM1 / SMK-37 firmware + tools hub at mutant.cloud",
+  "type": "module",
+  "scripts": {
+    "init": "node scripts/init.js",
+    "start": "wrangler dev --var LOCAL:1 --infer-origin-from-routes=false",
+    "deploy": "node scripts/deploy.js",
+    "sync": "node scripts/sync.js",
+    "shots": "node scripts/shots.js",
+    "poster": "node scripts/poster.js",
+    "collect": "node scripts/collect.js",
+    "fmt": "npx -y prettier -w src scripts public migrations design README.md action.yml wrangler.jsonc package.json"
+  },
+  "devDependencies": {
+    "wrangler": "^4.156.0"
+  }
+}
