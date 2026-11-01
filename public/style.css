@@ -1005,6 +1005,7 @@ form.edit {
 
 .field {
   display: grid;
+  align-content: start;
   gap: 4px;
 }
 
