@@ -43,17 +43,18 @@ export function deviceOf(p) {
 const hex = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('')
 
 // check one package URL. With a GitHub digest only the head is fetched; otherwise the whole file.
-// returns { sha256, size, product } or null if it is not an installable package
+// returns { sha256, size, product }, or null if it is not an installable package. Throws if it couldn't be
+// downloaded (worth trying again later, unlike a file that isn't a package).
 export async function inspect(url, { digest, size, headers = {} } = {}) {
   const sha = digest?.startsWith('sha256:') ? digest.slice(7) : null
   if (sha && size) {
     const r = await fetch(url, { headers: { ...headers, range: `bytes=0-${HEAD_BYTES - 1}` }, redirect: 'follow' })
-    if (!r.ok) return null
+    if (!r.ok) throw new Error(`download failed (${r.status})`)
     const p = product(new Uint8Array(await r.arrayBuffer()))
     return p ? { sha256: sha, size, product: p } : null
   }
   const r = await fetch(url, { headers, redirect: 'follow' })
-  if (!r.ok) return null
+  if (!r.ok) throw new Error(`download failed (${r.status})`)
   const len = Number(r.headers.get('content-length') || 0)
   if (len > 16 * 1024 * 1024) return null
   const buf = await r.arrayBuffer()

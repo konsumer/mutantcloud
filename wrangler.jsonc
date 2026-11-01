@@ -8,7 +8,7 @@
     "directory": "public",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/api/*", "/auth/*", "/firmware.json", "/catalog.json"]
+    "run_worker_first": ["/*", "!/app.js", "!/style.css", "!/favicon.svg", "!/og.png", "!/shots/*"]
   },
   // ids are filled in by `npm run init`. "remote": true makes `npm run start` (local server) use the real database + sessions
   "d1_databases": [{ "binding": "DB", "database_name": "mutantcloud", "database_id": "267896ce-ee78-47ac-8742-2493abf65775", "migrations_dir": "migrations", "remote": true }],

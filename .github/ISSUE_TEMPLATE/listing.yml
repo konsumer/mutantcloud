@@ -1,0 +1,33 @@
+name: Problem with a listing
+description: Something wrong or missing in a firmware or tool's listing (wrong info, a file that won't install, a listing that isn't yours, a firmware we don't have)
+title: 'Listing: '
+labels: [listing]
+body:
+  - type: input
+    id: listing
+    attributes:
+      label: Which listing?
+      description: Its link on mutant.cloud (the "Report a problem" link fills this in), or the firmware's name / repo if it's missing.
+      placeholder: https://mutant.cloud/#/p/…
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What's wrong?
+      description: What you expected, and what you see instead.
+    validations:
+      required: true
+  - type: dropdown
+    id: who
+    attributes:
+      label: Are you the maker?
+      options:
+        - Yes, it's my firmware or tool
+        - No, I use it
+        - No, other
+    validations:
+      required: true
+  - type: markdown
+    attributes:
+      value: If it's yours and on GitHub, you can usually fix it yourself right away: sign in on mutant.cloud and use **Edit listing**. Anything you can't change there (like the repo it points to), we'll sort out here.

@@ -1,716 +1,1062 @@
 {
-  "bass-something-2": {
-    "sha256": "42fbe4d15ec5db7d6998170303469dbe6460af3f093458f219cb7df8b676bd53",
-    "product": "FM-1_62000500",
-    "version": "0.5",
-    "v": "f42162b6"
-  },
-  "choralroot": {
-    "sha256": "1b810633ff9a17a339d3a11a04847cbe27f575a12c482ab58f92e70e6dffe148",
-    "product": "FM-1_920",
-    "version": "0.27",
-    "v": "0d9fc375"
-  },
-  "fm106": {
-    "sha256": "8fdc51828ae3a987c1a29d98f2584666ce47ce6ff4763238bfaf679fbdd8f46a",
-    "product": "FM-1_907",
-    "version": "beta7",
-    "v": "ec0a563d"
-  },
-  "elixir": {
-    "sha256": "4085ca9fae62d8469b0e88977dd563d98c1115619d092578449e51ac32d95c71",
-    "product": "FM-1_359002200",
-    "version": "0.22",
-    "v": "42f05e81"
-  },
-  "bb1": {
-    "sha256": "2ef5f0112657e25fcce3f25d3e9be6eb6ba1832d941386cbf3543a450686dcfc",
-    "product": "FM-1_900",
-    "version": "1.5",
-    "v": "7b0b4ac8"
-  },
-  "stock": {
-    "sha256": "db1642b2b6fa5c2cccb11ffd13878068bb28601678d3644049f99dc40e7edb8a",
-    "product": "FM-1_015",
-    "v": "762b5478"
-  },
-  "jiant": {
-    "sha256": "1a796ac3604f003ebc661c35564d0526ada58b5c8fad6aead10cf8ca49681063",
-    "product": "FM-1_909",
-    "failed": "sha256 does not match the list"
-  },
-  "fm1-dock": {
-    "sha256": "93218d3034f729f94cc180f6ece157b346fa7980b5296c939d80833b8322b4ce",
-    "product": "FM-1_921",
-    "version": "0.7.1",
-    "v": "dc7e6aa9"
-  },
-  "fmini": {
-    "sha256": "1c6370d7f698c02fc6c0cb84beaf7a665466cc278845832697cb4b6e3d65570a",
-    "product": "FM-1_900",
-    "version": "1.14.3",
-    "v": "a7b383d4"
-  },
-  "fomajam": {
-    "sha256": "105d045697a8887315fe0bd4e70c606c9f38f8e396fa8ad13c20544da5f673c1",
-    "product": "FM-1_961",
-    "version": "0.1.9",
-    "v": "6fc7577f"
-  },
-  "grimm": {
-    "sha256": "2635f44b63d53f9ed9aabebd4c41d9fae870cb4dcf2a6bc96aa6fbba2c2a30cf",
-    "product": "FM-1_966",
-    "version": "2.0",
-    "v": "41e997a0"
-  },
-  "matryoshka": {
-    "sha256": "59b6e38239a9bae345ec4b5fb2c64f2813be426af9f1646782d9cd8c51158cbd",
-    "product": "FM-1_717",
-    "version": "1.7.1",
-    "v": "2d955a17"
-  },
-  "numetal-skratchmaster-pro": {
-    "sha256": "ab42db973da1ddbfd23e14362a760ce79c1f4270e28dd16430c2b49dd2478b08",
-    "product": "FM-1_926",
-    "version": "3.0",
-    "v": "cd30fe95"
-  },
-  "scintilla": {
-    "sha256": "3fc929a29db7096c2f0751a67b6682c10ed531b3411f25daa6c825dfb36784c5",
-    "product": "FM-1_96300101",
-    "version": "0.1.1",
-    "v": "1a596714"
-  },
-  "ravel": {
-    "sha256": "6c3cb888bd86f4f77844b147e16e8fcac0e987704a5cb1be5ffd25df4fa1671f",
-    "product": "FM-1_82010500",
-    "version": "1.5.0",
-    "v": "ee076724"
-  },
-  "aisling": {
-    "sha256": "377ce6e46b793b79dda921d0ccd1555f3f2c4af053161d9c235ad1eb144104ac",
-    "product": "FM-1_353000100",
-    "version": "0.1",
-    "v": "3a3cd6f2"
-  },
-  "amb": {
-    "sha256": "59dbc6b688e3a64bb0da912c1e40890da7bc214b2a3269704627369b776707cb",
-    "product": "FM-1_7010300",
-    "version": "1.3",
-    "v": "f5269c0c"
-  },
-  "orange-cat": {
-    "sha256": "867444fe1df86f85cd3a05ca1c1348b541d6dedba21c7b5d7392e8898d11edcc",
-    "product": "FM-1_900",
-    "version": "0.15.0",
-    "v": "d2026150"
-  },
-  "tessera": {
-    "sha256": "5e3365342259e8d57e430d3c075b467b5e77cd38fc99ffcac77653f275b62282",
-    "product": "FM-1_83773020",
-    "version": "3.2",
-    "v": "45d80d69"
-  },
-  "arctic": {
-    "sha256": "5903464847fed9d808dc40d3ca689ea8ae424b61a0f192ae4cdfb27f61158721",
-    "product": "FM-1_977",
-    "version": "1.2",
-    "v": "c84d0503"
-  },
-  "caravel": {
-    "sha256": "10d7b1a3f8d0a5cb1c60f2ad3eb5c53a814280393d78949ee25c775c1dd3c564",
-    "product": "FM-1_999",
-    "version": "0.7.2",
-    "v": "e20573f3"
-  },
-  "ctl": {
-    "sha256": "fd9df8eac1d37a1bb296842728057b42bb5e666f4b0112ece01f5f179cd82f75",
-    "product": "FM-1_6010000",
-    "version": "1.0",
-    "v": "2f711cd3"
-  },
-  "carnac": {
-    "sha256": "6d81a8d1186fecc8c4e8be082c163f5cc3d2a3286b70f66e42b4b941e604f1b2",
-    "product": "FM-1_900",
-    "version": "0.9.6",
-    "v": "232ccf91"
-  },
-  "araminta": {
-    "sha256": "9efc37287d6642c16188d7e897464b26ebfc878d7922181d423e11c23a1d0316",
-    "product": "FM-1_900",
-    "version": "3.5",
-    "v": "4ec75272"
-  },
-  "emerald-ym": {
-    "sha256": "f16da6faa7607541c94ac4bfbb0bb626e95eac0956e990a75317caf5b73a411f",
-    "product": "FM-1_68010004",
-    "version": "1.0.4",
-    "v": "cd8a36a7"
-  },
-  "estampie": {
-    "sha256": "da65901952440282206cf4a37040215c3b55ed7d301a19d583231e32531b0caf",
-    "product": "FM-1_378010",
-    "version": "0.3.7",
-    "v": "2b183653"
-  },
-  "felucca": {
-    "sha256": "a31760f2588b39bcb3a8d6f78f6041a1a550978a972ecd71564e45513698ecd6",
-    "product": "FM-1_918",
-    "version": "1.8.0",
-    "v": "f75a4293"
-  },
-  "felucca-kmplngj-s-fork": {
-    "sha256": "55eaf33927eb8cf323857f15fdeb2e1d798be0761c27ce490203b578855c617d",
-    "product": "FM-1_900",
-    "version": "latest-dev",
-    "v": "88212c75"
-  },
-  "duell": {
-    "sha256": "f8f8cdee93bc72061c2ac1b82a4d3fa3704aa5a2247b498c6802f7c518c37dc3",
-    "product": "FM-1_901",
-    "version": "1.1",
-    "v": "553c88a4"
-  },
-  "fm1-base": {
-    "sha256": "a62e6d803b0fa223839d4af1eb558a4d02cc27b1f5c492e93b4a49beedc00538",
-    "product": "FM-1_11000300",
-    "version": "latest",
-    "v": "038823b1"
-  },
-  "felucca8": {
-    "sha256": "09074180318202b8b4ddbbc5f4a5261e90ea54fc3a95dbb6183b1d045786c60e",
-    "product": "FM-1_900",
-    "version": "1.6.1_and_sequences_2",
-    "v": "f082e73c"
-  },
-  "fomni": {
-    "sha256": "71fa8304b91bff89078bfd27e981ed28ca4f0d3c5f406e8fdb5a2ab240fbdbb5",
-    "product": "FM-1_8000400",
-    "version": "0.4",
-    "v": "28514429"
-  },
-  "frasil": {
-    "sha256": "70aaca490d966677c5621dbd80d300fb924574e705b140fc6b5012f8310b52d5",
-    "product": "FM-1_47020600",
-    "version": "2.6",
-    "v": "150dcd93"
-  },
-  "launchparty": {
-    "sha256": "83b4a2ee4aa539c8946e8b9660a51b0bc6eff5abd1677fab0f3b55712429873e",
-    "product": "FM-1_900",
-    "version": "0.3.2-public",
-    "v": "ab6db85c"
-  },
-  "loomfm1": {
-    "sha256": "bbb5ba438d62e947158c614b18ac37264a64a472a077d57eb271acb60f6f47af",
-    "product": "FM-1_985",
-    "version": "0.1.0",
-    "v": "4836df5c"
-  },
-  "hawkchua": {
-    "sha256": "bc63f5ccb4a98a6ba93b73aca99eb28313e554fbd7a1b4ef29fd68d1836b864f",
-    "product": "FM-1_007",
-    "version": "1.7",
-    "v": "bd2caad0"
-  },
-  "lsdjburrito": {
-    "sha256": "dfbd44cf17f042d6f4d14cb9586ee6f520e85a1e5686defb0e00933b119bb044",
-    "product": "FM-1_537000996",
-    "version": "0.9.96",
-    "v": "f9a7fc1f"
-  },
-  "karma": {
-    "sha256": "1468268b0ded229a27398633fb7142cc1b85709e50ddfbb31e8efadaf45bddd3",
-    "product": "FM-1_926",
-    "version": "3.0.3",
-    "v": "ed6da27f"
-  },
-  "mocky": {
-    "sha256": "76ffe96997e385d8c7f84ddc34ace6fe68987f62638aa8f2991523bc5cf36f40",
-    "product": "FM-1_1000901",
-    "version": "0.9.1",
-    "v": "602af943"
-  },
-  "monk": {
-    "sha256": "76fe9af0ab18b49e197ebae2224daf8a354424bd89cd241527a85bf7048eb192",
-    "product": "FM-1_5000901",
-    "version": "0.9.1",
-    "v": "c8c4b160"
-  },
-  "loom": {
-    "sha256": "a145fc0f1077b97341cc95a3d963f8249faa49249fdd726f989c49054959e463",
-    "product": "FM-1_10001100",
-    "version": "0.11",
-    "v": "949a86bc"
-  },
-  "mutable": {
-    "sha256": "d6682e1433f581285333f23629be20b96a595707776c6359d22d14e6542d6bda",
-    "product": "FM-1_710010400",
-    "version": "1.4",
-    "v": "caff4340"
-  },
-  "nachtfahrt": {
-    "sha256": "0047a4e7fc64d5144fd43e4f99a14358ab0f67b0dd49dabf5b20fb3f13442a04",
-    "product": "FM-1_197000909",
-    "version": "0.9.9",
-    "v": "082a5257"
-  },
-  "obervave": {
-    "sha256": "1e81096eaa61b280cbb4b2c174c0f47eff96a0fe5beba0b647ef2572d85c1a28",
-    "product": "FM-1_9533",
-    "version": "3.3",
-    "v": "fb12247e"
-  },
-  "mono2k": {
-    "sha256": "df5bc21caab14c4cb80430ef958b0400007839715e93820177ee033288e59e83",
-    "product": "FM-1_980",
-    "failed": "blank screen"
-  },
-  "orbit": {
-    "sha256": "11ca7174c48c9decdef809af940e1b41d54b7c927abeedafa7b7864ce8dc374b",
-    "product": "FM-1_900",
-    "version": "0.10.0",
-    "v": "b0dc79c8"
-  },
-  "polly": {
-    "sha256": "2dea2914b4628f075cf3605fae7a75afc03a4b2ae2d7823d8ccf4bf16dd986c7",
-    "product": "FM-1_3000500",
-    "version": "0.5",
-    "v": "4ece128d"
-  },
-  "optimist": {
-    "sha256": "926f08a95fa0e00f988bfd73f82fd8df130b9a8e4aa95a98e3aca925ec9b89a7",
-    "product": "FM-1_722",
-    "version": "0.2",
-    "v": "19632b28"
-  },
-  "rainbow": {
-    "sha256": "7674dbb8762ded53542b3c299dde21438ea773c57c5c803c08ba1a7fe59caed4",
-    "product": "FM-1_911",
-    "version": "fm1-rescue-test",
-    "v": "c5d99971"
-  },
-  "perf1": {
-    "sha256": "00630e8f0b8f1c28f83acf6ff3b5b773a967bd231113df2409bbce0bd6e9110d",
-    "product": "FM-1_7001600",
-    "version": "0.16.0",
-    "v": "97ea3e13"
-  },
-  "ptfm": {
-    "sha256": "91deae9e804c737e2e78ae88726dbd9e52ca40fc552ea87e3924d98a83681b2a",
-    "product": "FM-1_7101",
-    "version": "0.26",
-    "v": "f696b164"
-  },
-  "s1vave": {
-    "sha256": "d14b1b4a0c25b38c9839271a0262c0f620be997234dedc09d53a9d7114da7419",
-    "product": "FM-1_951",
-    "version": "1.11",
-    "v": "1864009c"
-  },
-  "sidj": {
-    "sha256": "766d64431391ab4ead08fdc5f5c66b05c5a4ae004b4f985569609298e2b6b931",
-    "product": "FM-1_64010200",
-    "version": "1.2.0",
-    "v": "5a3c0761"
-  },
-  "sidou": {
-    "sha256": "31b73ec12f361d2638acedee1ae7121ade22b9fa9b38c4a36ed5a47bb56b06de",
-    "product": "FM-1_964",
-    "version": "1.1.0",
-    "v": "76f0c466"
-  },
-  "skiff": {
-    "sha256": "0cfae2431f351365d83842bf1a381ee48baead371e81f77faaa2b3c6aabbd304",
-    "product": "FM-1_721",
-    "version": "2.1.1",
-    "v": "1c5f9294"
-  },
-  "remotefm1": {
-    "sha256": "11680a48829ee5f4687da1148a60df192eb97e39d333ae18fd63931e3cd7e724",
-    "product": "FM-1_52000301",
-    "version": "0.3.1",
-    "v": "3dba05ff"
-  },
-  "smileyface": {
-    "sha256": "24805ea5f5eea549905914c054c6934de9b00943858335681c038ddae30eb8da",
-    "product": "FM-1_303",
-    "version": "1.0.0",
-    "v": "83bc038c"
-  },
-  "sqrl-1": {
-    "sha256": "9a8325db718e8d0a30c6b8a56aaa3cfac0d1f4b03bb7d62ef0160a60ebd4f1ba",
-    "product": "FM-1_950",
-    "version": "1.0.0",
-    "v": "c834b1f2"
-  },
-  "vesper": {
-    "sha256": "297857177ecb810cc4b98ed47237f6abd681d190b0239e79ebb49fc84c41e80b",
-    "product": "FM-1_8837201",
-    "version": "vesper-2.0.1",
-    "v": "75d313ba"
-  },
-  "amb-1-smk-37": {
-    "sha256": "756f7a49dcb4972d44cb08d4a9f82b10a61c9bb787c5fcd347533fc145081196",
-    "product": "SMK-37 Pro_700",
-    "version": "smk37-v1.1",
-    "v": "f5269c0c"
-  },
-  "b1-drawbar-organ": {
-    "sha256": "bba66af899af865b3e0a38ac3ab60539a1391dfda543175b06cc1a6e757e3db4",
-    "product": "FM-1_481026",
-    "version": "V4.9beta",
-    "v": "4b4e534d"
-  },
-  "tonitor": {
-    "sha256": "d44a89680f1ab9588f64b2c1991af593c6a73908663718df11c1d040640b3b32",
-    "product": "FM-1_700",
-    "version": "2026.10.31",
-    "v": "153a285d"
-  },
-  "beetle": {
-    "sha256": "6754b272d99284d218a9040ebb609187fdeec0e6fcd134bbb2f0b9a37f400d31",
-    "product": "FM-1_2123",
-    "version": "V1.8",
-    "v": "04bab14e"
-  },
-  "x0x": {
-    "sha256": "a0c29deb930c65f1d40b5691b7d673f861418b438b7e65027cb9c671e6f44f5b",
-    "product": "FM-1_9010100",
-    "version": "1.1.0",
-    "v": "85486668"
-  },
-  "coralflower": {
-    "sha256": "de41c96a0979927d921a99064aca1b43cb871a5ab10736342abf22cab2845a22",
-    "product": "FM-1_930",
-    "version": "0.6.1",
-    "v": "f7e1306d"
-  },
-  "double-rainbow": {
-    "sha256": "f4cff0907a3ed558349b8e68114bf1360ef33aa5a5de69f6076a35af39cf3275",
-    "product": "FM-1_90131",
-    "version": "latest",
-    "v": "42e2e761"
-  },
-  "clipper": {
-    "sha256": "cb976dff03c73032d1265be2a925bf0ec703565096c03aba3c72a818ab4628f1",
-    "product": "FM-1_900",
-    "version": "1.3",
-    "v": "56a14728"
-  },
-  "clipper-pro": {
-    "sha256": "f8b539209d8650a2be3bb896e4565749119d7ee75602dab281d667599cabbb86",
-    "product": "SMK-37 Pro_900",
-    "version": "1.3",
-    "v": "56a14728"
-  },
-  "dub": {
-    "sha256": "19cc9649583192d0634467e18e28532078d4d7889231c9e842da7fb4ff869c0a",
-    "product": "FM-1_8010403",
-    "version": "1.4.3",
-    "v": "2aa37ed4"
-  },
-  "etch": {
-    "sha256": "65bcb51012d81c9c8206c4843ce04b5c03177b8f09ed74313799ebec0798330f",
-    "product": "FM-1_1500",
-    "version": "V1.88",
-    "v": "6ef28dbb"
-  },
-  "fmel": {
-    "sha256": "0e6b9b31d422e875b035db06f7c82aba91f53bbffd0038cdbf7c3f5a726a920a",
-    "product": "FM-1_950",
-    "version": "1.0",
-    "v": "89f1a9b4"
-  },
-  "fmlarynx": {
-    "sha256": "6d15be0e9804fb0588cefc6e312245aa257252365dffac694b6fd8106a3d8c30",
-    "product": "FM-1_984",
-    "version": "0.1.1",
-    "v": "c56ec69c"
-  },
-  "fomni-smk-37": {
-    "sha256": "d99cabd903362d6c5bd05065a63f1cd052eac68f59503d8c7505d630e5ddf7eb",
-    "product": "MKE-P37_800",
-    "version": "smk37-v0.2",
-    "v": "28514429"
-  },
-  "kwasub": {
-    "sha256": "da7bb99b016a83eaa2ca063ed8e98084e170364e3223a9f2174ee4143ee31ed7",
-    "product": "FM-1_1990",
-    "version": "1.0.46",
-    "v": "b7f13f24"
-  },
-  "fizz": {
-    "sha256": "931df76eb1a966270b8551cd642dd8f85ebad81d1a770ec38959b23b79c62385",
-    "product": "FM-1_46001200",
-    "version": "0.12.0-beta.12",
-    "v": "a204318d"
-  },
-  "kawa": {
-    "sha256": "c26d121dd0ce0f753110f0fb21d250d67239c41a9525e9ebda869cc6eb21e9d9",
-    "product": "FM-1_956",
-    "version": "0.6",
-    "v": "e780fae8"
-  },
-  "mope1": {
-    "sha256": "5a58b365b00e1a41a334fca8a36342a08ac8f5f2a35c03a21b4770bbcd1e02df",
-    "product": "FM-1_6673000300",
-    "version": "0.3.0",
-    "v": "98557601"
-  },
-  "niagara": {
-    "sha256": "63525a135cc8168c5c183648f04da7f2154f6be7d6d97bb46bca93c19934476e",
-    "product": "FM-1_8000200",
-    "version": "0.2",
-    "v": "f1ece420"
-  },
-  "polly-smk-37": {
-    "sha256": "77a18739444a40f93168b01579e5b11bd7289860e296a6ca5a97b75a629fce29",
-    "product": "SMK-37 Elite_300",
-    "version": "smk37-v0.4.1",
-    "v": "4ece128d"
-  },
-  "kitten": {
-    "sha256": "d9b923b7d8bfbf007426710b53a20b0c8887fb8bb452a811b79d77f71308d426",
-    "product": "FM-1_969",
-    "version": "2.8-kitten.4",
-    "v": "65fab592"
-  },
-  "prysm": {
-    "sha256": "f74cd6ffe2e4bec65d5b531cdab8de825f57bc1c71dbd2e6ef55ee0358807ab1",
-    "product": "FM-1_989",
-    "version": "1.3",
-    "v": "b4552fff"
-  },
-  "penumbra": {
-    "sha256": "add8b38f657229736cde5302740ca4b7e7f2b30fceb4be2199e30da489838c09",
-    "product": "FM-1_73010000",
-    "version": "1.0",
-    "v": "9e7aa3cb"
-  },
-  "sloop-pro": {
-    "sha256": "7c18163fd2088663ff057b729419e4ff3b08ceb77ad72072fced3c26a8aeb80a",
-    "product": "SMK-37 Pro_900",
-    "version": "2.8.4",
-    "v": "ebb0175f"
-  },
-  "sloop": {
-    "sha256": "5a6a0843c868650dba6718cf85e43e719aec18c3dc5cc803c57c38b382158d4e",
-    "product": "FM-1_900",
-    "version": "2.8.4",
-    "v": "ebb0175f"
-  },
-  "xmod": {
-    "sha256": "e985c66c5e19cabc6ee6b102c3aba7fe5f663a312a4cceb5cb735ee5f5519697",
-    "product": "FM-1_666",
-    "version": "1.2.0",
-    "v": "2fd0b17c"
-  },
-  "synthesthetic": {
-    "sha256": "993e4e45f660db226d5e2703cf5ee1928b09893184a68b73397b459ea0be0bda",
-    "product": "FM-1_953",
-    "version": "0.3-beta",
-    "v": "487afdee"
-  },
-  "chipbox": {
-    "sha256": "36474c2fdd8f86d13a1f1f34bf72c303cc937becb08b206b78c83261c33b9bab",
-    "product": "FM-1_337",
-    "version": "1.4.0-helpfulharold",
-    "v": "a82c09c1"
-  },
-  "x0x-smk-37": {
-    "sha256": "b577c6aceac17ebe94753046394775153a743eb29502806478fbb2303a416e61",
-    "product": "SMK-37 Elite_900",
-    "version": "smk37-v0.2",
-    "v": "85486668"
-  },
-  "daurade": {
-    "sha256": "f2b799da33ba710f0598de0c004be18b58b50ae18e0dbe005d889de4a09e8b1b",
-    "product": "FM-1_900",
-    "version": "0.1",
-    "v": "58594a73"
-  },
-  "dungeontracker": {
-    "sha256": "76395b50b99b4448c7d38fc6e6fc69a970438441f2f9ee2efe6f736e876fc8f5",
-    "product": "FM-1_910",
-    "version": "1.0.0",
-    "v": "1dfe8d2f"
-  },
-  "flyfish": {
-    "sha256": "d44d6b1b0eeb547fd590b882747f880ca271585a4cb434b2fe497f03d9080694",
-    "product": "FM-1_900",
-    "version": "1.0.3",
-    "v": "bf13d01c"
-  },
-  "fm1quest": {
-    "sha256": "9c29c3e72e4380c478faf68f77e418c05f2a8ae2dc08bdce8d84fd6619130a64",
-    "product": "FM-1_900",
-    "version": "quest-39",
-    "v": "330e808a"
-  },
-  "frodhes": {
-    "sha256": "ecf62e5420e1e5da5a01078ceb2c54d765c940d93070b90afc064c669297eaf3",
-    "product": "FM-1_958",
-    "version": "0.9.7",
-    "v": "d6f455c0"
-  },
-  "j6": {
-    "sha256": "0bf0a53e4213e070917650294acf92c8bf83f12b2539f78aee29de9330f3de8f",
-    "product": "FM-1_66010400",
-    "version": "1.4.0",
-    "v": "8fb9736f"
-  },
-  "jam": {
-    "sha256": "d6711eff80af67e20a1be59474f9c19e2eff06daeb0565906c4632bc4594891b",
-    "product": "FM-1_7666200",
-    "version": "1.2.0",
-    "v": "0c6f2cfc"
-  },
-  "makohai": {
-    "sha256": "0750576c0ae6c888e7d38122d8c6a3e9fd0c8a0887db4031c0867e94048cb07c",
-    "product": "FM-1_47625642",
-    "version": "1.3",
-    "v": "88e351d3"
-  },
-  "oplbox": {
-    "sha256": "2b1576873d3eb2e5d0929169e1a3c6618e98e28afb1aa9a9ddba4c5e4db49500",
-    "product": "FM-1_964",
-    "version": "0.4.2",
-    "v": "fb408489"
-  },
-  "opx": {
-    "sha256": "a4a917bfaeaf9d77ff4221979af5ca017075a47e9504f1c28fe6ce163a1a37bc",
-    "product": "FM-1_9001",
-    "version": "0.2.0",
-    "v": "f0f82c54"
-  },
-  "pigeon": {
-    "sha256": "a6cbb4fbd80baa38eb99400bb4bef5ddd5d4167024a8342189a07bc6b8861bed",
-    "product": "FM-1_900",
-    "version": "0.5.0-beta.1",
-    "v": "acc6c609"
-  },
-  "sill": {
-    "sha256": "941054517ccfeacc250ab1e33d613a691a37419a01e2091c348b0472bc701f7f",
-    "product": "FM-1_900",
-    "version": "1.0",
-    "v": "b4367cca"
-  },
-  "melodee": {
-    "sha256": "172afb5b000f093bbe060922e76e11cd9334b12895a7e659bd20da515fb2d640",
-    "product": "FM-1_91051",
-    "version": "1.5.1",
-    "v": "e3ab8a5d"
-  },
-  "tuna": {
-    "sha256": "1de5005868c1a329fcbc7be337102aa051f8efc0cd70cfdc5cf6615ced42e002",
-    "product": "FM-1_900",
-    "version": "1.0",
-    "v": "7e88c3a7"
-  },
-  "fm1gm": {
-    "sha256": "4b093ef506dcb70c45880271aa347106ecaec6062c5072a5128a8275eb32b418",
-    "product": "FM-1_600",
-    "version": "1.1.1",
-    "v": "ac076568"
-  },
-  "hortator": {
-    "sha256": "f7773531bb4c349d0262249a4acf522c71250d64de2e96d29b3d92d215763963",
-    "product": "FM-1_900",
-    "failed": "blank screen"
-  },
-  "nauclerus": {
-    "sha256": "b496e081fd78c05eaa3cd368caf384285ec7b708477c5ff638f373e6a3c2a870",
-    "product": "FM-1_25000",
-    "failed": "blank screen"
-  },
-  "demake-synth": {
-    "sha256": "b496d0efdfc403dba0d447a7987331cd7dbe2a5dbc8908cafbc2154f72f584da",
-    "product": "FM-1_969",
-    "version": "0.4.24",
-    "v": "897d6be6"
-  },
-  "spellbox": {
-    "sha256": "b4b3f5ca96c4f7f5971586e9ada95cc343d789a8d4b3761b832c39f0920a4c05",
-    "product": "FM-1_573",
-    "version": "0.3",
-    "v": "fbdb3019"
-  },
-  "unholy": {
-    "sha256": "025bec05d71da1b106ecb05d52e165ea6592812e92209cfe2626278047f7abba",
-    "product": "FM-1_80023",
-    "version": "0.2.3",
-    "v": "260059c2"
-  },
-  "berlinan": {
-    "sha256": "660b2a0059ec1d002d59dd1fb1ff86f93510a6468ddd385073db22d59cf478d1",
-    "product": "FM-1_23000501",
-    "version": "0.5.1",
-    "v": "99769cf4"
-  },
-  "spampy": {
-    "sha256": "f7c1cde01c66a24e11e8cec43a09529f3b5096d4f2982d7d5c05f1f2cf0e702f",
-    "product": "FM-1_949",
-    "version": "r949",
-    "v": "be468011"
-  },
-  "terkinstein": {
-    "sha256": "985c1000dc58dd0afeafb18185a5de980795908166e9356d4c72fd07e656708f",
-    "product": "FM-1_986",
-    "version": "0.26.19",
-    "v": "b49241fa"
-  },
-  "delrio": {
-    "sha256": "61b141e326829e53de7dc92d9654c31e9f8b07306d47de3e815d18a147943895",
-    "product": "FM-1_48000900",
-    "version": "0.9",
-    "v": "0ec17fc2"
-  },
-  "quod": {
-    "sha256": "9bd1127405c37ed67fcbf646c0a42e9fda00bfed5e40e7fe883bc5694bdbaa9d",
-    "product": "FM-1_Q03",
-    "version": "0.3",
-    "v": "6fb090a5"
-  },
-  "fm1-sid": {
-    "sha256": "30fbbeb839e34eb9cd06b543b9142cce3a937d6b0a221e9985412cebba324ed3",
-    "product": "FM-1_900",
-    "version": "0.3",
-    "v": "a29f2dab"
-  },
-  "mnm1": {
-    "sha256": "d44011bf035314c037e16ab36a8e7895d9274732329e1d60e0bd94bd512eabf9",
-    "product": "FM-1_61000100",
-    "failed": "blank screen"
-  },
-  "forge-one": {
-    "sha256": "dff3a38f7e5b9833e15aba322558c9485e9e422e3ff813c616c91b3584a2d909",
-    "product": "FM-1_916",
-    "version": "latest",
-    "v": "2533220a"
-  },
-  "saadet": {
-    "sha256": "fedafffd66fe35dc7fad57e11e5e6cb6adcfa21fb92760ccc3f9920c8fb30684",
-    "product": "FM-1_9000101",
-    "version": "0.1.1",
-    "v": "371c0959"
-  },
-  "x0x-extended-edition": {
-    "sha256": "0aedc953384583a22085a77f1e619399d7354a97563e4f4e2b6bab944cd9c716",
-    "product": "FM-1_9000132",
-    "version": "0.1.32-straightbeta",
-    "v": "1889c0d6"
-  },
-  "golana": {
-    "sha256": "49806d009e140d1e90a1396d0f8caf54870d9d633d3ade2718ec0461b9501745",
-    "product": "FM-1_913",
-    "version": "golana-v1.3",
-    "v": "d6d0875e"
-  },
-  "guitchordi": {
-    "sha256": "330396f043093bcdda65aacbd0098dd1fc1f253a17d5707db19ff5d971e05217",
-    "product": "FM-1_982",
-    "version": "0.1.0-beta.1",
-    "v": "abf7ebd8"
-  }
+ "bass-something-2": {
+  "sha256": "42fbe4d15ec5db7d6998170303469dbe6460af3f093458f219cb7df8b676bd53",
+  "product": "FM-1_62000500",
+  "version": "0.5",
+  "v": "f42162b6"
+ },
+ "choralroot": {
+  "sha256": "1b810633ff9a17a339d3a11a04847cbe27f575a12c482ab58f92e70e6dffe148",
+  "product": "FM-1_920",
+  "version": "0.27",
+  "v": "0d9fc375"
+ },
+ "fm106": {
+  "sha256": "8fdc51828ae3a987c1a29d98f2584666ce47ce6ff4763238bfaf679fbdd8f46a",
+  "product": "FM-1_907",
+  "version": "beta7",
+  "v": "ec0a563d"
+ },
+ "elixir": {
+  "sha256": "4085ca9fae62d8469b0e88977dd563d98c1115619d092578449e51ac32d95c71",
+  "product": "FM-1_359002200",
+  "version": "0.22",
+  "v": "42f05e81"
+ },
+ "bb1": {
+  "sha256": "2ef5f0112657e25fcce3f25d3e9be6eb6ba1832d941386cbf3543a450686dcfc",
+  "product": "FM-1_900",
+  "version": "1.5",
+  "v": "7b0b4ac8"
+ },
+ "stock": {
+  "sha256": "db1642b2b6fa5c2cccb11ffd13878068bb28601678d3644049f99dc40e7edb8a",
+  "product": "FM-1_015",
+  "v": "762b5478"
+ },
+ "jiant": {
+  "sha256": "1a796ac3604f003ebc661c35564d0526ada58b5c8fad6aead10cf8ca49681063",
+  "product": "FM-1_909",
+  "failed": "sha256 does not match the list"
+ },
+ "fm1-dock": {
+  "sha256": "93218d3034f729f94cc180f6ece157b346fa7980b5296c939d80833b8322b4ce",
+  "product": "FM-1_921",
+  "version": "0.7.1",
+  "v": "dc7e6aa9"
+ },
+ "fmini": {
+  "sha256": "1c6370d7f698c02fc6c0cb84beaf7a665466cc278845832697cb4b6e3d65570a",
+  "product": "FM-1_900",
+  "version": "1.14.3",
+  "v": "a7b383d4"
+ },
+ "fomajam": {
+  "sha256": "105d045697a8887315fe0bd4e70c606c9f38f8e396fa8ad13c20544da5f673c1",
+  "product": "FM-1_961",
+  "version": "0.1.9",
+  "v": "6fc7577f"
+ },
+ "grimm": {
+  "sha256": "2635f44b63d53f9ed9aabebd4c41d9fae870cb4dcf2a6bc96aa6fbba2c2a30cf",
+  "product": "FM-1_966",
+  "version": "2.0",
+  "v": "41e997a0"
+ },
+ "matryoshka": {
+  "sha256": "59b6e38239a9bae345ec4b5fb2c64f2813be426af9f1646782d9cd8c51158cbd",
+  "product": "FM-1_717",
+  "version": "1.7.1",
+  "v": "2d955a17"
+ },
+ "numetal-skratchmaster-pro": {
+  "sha256": "ab42db973da1ddbfd23e14362a760ce79c1f4270e28dd16430c2b49dd2478b08",
+  "product": "FM-1_926",
+  "version": "3.0",
+  "v": "cd30fe95"
+ },
+ "scintilla": {
+  "sha256": "3fc929a29db7096c2f0751a67b6682c10ed531b3411f25daa6c825dfb36784c5",
+  "product": "FM-1_96300101",
+  "version": "0.1.1",
+  "v": "1a596714"
+ },
+ "ravel": {
+  "sha256": "6c3cb888bd86f4f77844b147e16e8fcac0e987704a5cb1be5ffd25df4fa1671f",
+  "product": "FM-1_82010500",
+  "version": "1.5.0",
+  "v": "ee076724"
+ },
+ "aisling": {
+  "sha256": "377ce6e46b793b79dda921d0ccd1555f3f2c4af053161d9c235ad1eb144104ac",
+  "product": "FM-1_353000100",
+  "version": "0.1",
+  "v": "3a3cd6f2"
+ },
+ "amb": {
+  "sha256": "59dbc6b688e3a64bb0da912c1e40890da7bc214b2a3269704627369b776707cb",
+  "product": "FM-1_7010300",
+  "version": "1.3",
+  "v": "f5269c0c"
+ },
+ "orange-cat": {
+  "sha256": "867444fe1df86f85cd3a05ca1c1348b541d6dedba21c7b5d7392e8898d11edcc",
+  "product": "FM-1_900",
+  "version": "0.15.0",
+  "v": "d2026150"
+ },
+ "tessera": {
+  "sha256": "5e3365342259e8d57e430d3c075b467b5e77cd38fc99ffcac77653f275b62282",
+  "product": "FM-1_83773020",
+  "version": "3.2",
+  "v": "45d80d69"
+ },
+ "arctic": {
+  "sha256": "5903464847fed9d808dc40d3ca689ea8ae424b61a0f192ae4cdfb27f61158721",
+  "product": "FM-1_977",
+  "version": "1.2",
+  "v": "c84d0503"
+ },
+ "caravel": {
+  "sha256": "10d7b1a3f8d0a5cb1c60f2ad3eb5c53a814280393d78949ee25c775c1dd3c564",
+  "product": "FM-1_999",
+  "version": "0.7.2",
+  "v": "e20573f3"
+ },
+ "ctl": {
+  "sha256": "fd9df8eac1d37a1bb296842728057b42bb5e666f4b0112ece01f5f179cd82f75",
+  "product": "FM-1_6010000",
+  "version": "1.0",
+  "v": "2f711cd3"
+ },
+ "carnac": {
+  "sha256": "6d81a8d1186fecc8c4e8be082c163f5cc3d2a3286b70f66e42b4b941e604f1b2",
+  "product": "FM-1_900",
+  "version": "0.9.6",
+  "v": "232ccf91"
+ },
+ "araminta": {
+  "sha256": "9efc37287d6642c16188d7e897464b26ebfc878d7922181d423e11c23a1d0316",
+  "product": "FM-1_900",
+  "version": "3.5",
+  "v": "4ec75272"
+ },
+ "emerald-ym": {
+  "sha256": "f16da6faa7607541c94ac4bfbb0bb626e95eac0956e990a75317caf5b73a411f",
+  "product": "FM-1_68010004",
+  "version": "1.0.4",
+  "v": "cd8a36a7"
+ },
+ "estampie": {
+  "sha256": "da65901952440282206cf4a37040215c3b55ed7d301a19d583231e32531b0caf",
+  "product": "FM-1_378010",
+  "version": "0.3.7",
+  "v": "2b183653"
+ },
+ "felucca": {
+  "sha256": "a31760f2588b39bcb3a8d6f78f6041a1a550978a972ecd71564e45513698ecd6",
+  "product": "FM-1_918",
+  "version": "1.8.0",
+  "v": "f75a4293"
+ },
+ "felucca-kmplngj-s-fork": {
+  "sha256": "55eaf33927eb8cf323857f15fdeb2e1d798be0761c27ce490203b578855c617d",
+  "product": "FM-1_900",
+  "version": "latest-dev",
+  "v": "88212c75"
+ },
+ "duell": {
+  "sha256": "f8f8cdee93bc72061c2ac1b82a4d3fa3704aa5a2247b498c6802f7c518c37dc3",
+  "product": "FM-1_901",
+  "version": "1.1",
+  "v": "553c88a4"
+ },
+ "fm1-base": {
+  "sha256": "a62e6d803b0fa223839d4af1eb558a4d02cc27b1f5c492e93b4a49beedc00538",
+  "product": "FM-1_11000300",
+  "version": "latest",
+  "v": "038823b1"
+ },
+ "felucca8": {
+  "sha256": "09074180318202b8b4ddbbc5f4a5261e90ea54fc3a95dbb6183b1d045786c60e",
+  "product": "FM-1_900",
+  "version": "1.6.1_and_sequences_2",
+  "v": "f082e73c"
+ },
+ "fomni": {
+  "sha256": "71fa8304b91bff89078bfd27e981ed28ca4f0d3c5f406e8fdb5a2ab240fbdbb5",
+  "product": "FM-1_8000400",
+  "version": "0.4",
+  "v": "28514429"
+ },
+ "frasil": {
+  "sha256": "70aaca490d966677c5621dbd80d300fb924574e705b140fc6b5012f8310b52d5",
+  "product": "FM-1_47020600",
+  "version": "2.6",
+  "v": "150dcd93"
+ },
+ "launchparty": {
+  "sha256": "83b4a2ee4aa539c8946e8b9660a51b0bc6eff5abd1677fab0f3b55712429873e",
+  "product": "FM-1_900",
+  "version": "0.3.2-public",
+  "v": "ab6db85c"
+ },
+ "loomfm1": {
+  "sha256": "bbb5ba438d62e947158c614b18ac37264a64a472a077d57eb271acb60f6f47af",
+  "product": "FM-1_985",
+  "version": "0.1.0",
+  "v": "4836df5c"
+ },
+ "hawkchua": {
+  "sha256": "bc63f5ccb4a98a6ba93b73aca99eb28313e554fbd7a1b4ef29fd68d1836b864f",
+  "product": "FM-1_007",
+  "version": "1.7",
+  "v": "bd2caad0"
+ },
+ "lsdjburrito": {
+  "sha256": "dfbd44cf17f042d6f4d14cb9586ee6f520e85a1e5686defb0e00933b119bb044",
+  "product": "FM-1_537000996",
+  "version": "0.9.96",
+  "v": "f9a7fc1f"
+ },
+ "karma": {
+  "sha256": "1468268b0ded229a27398633fb7142cc1b85709e50ddfbb31e8efadaf45bddd3",
+  "product": "FM-1_926",
+  "version": "3.0.3",
+  "v": "ed6da27f"
+ },
+ "mocky": {
+  "sha256": "76ffe96997e385d8c7f84ddc34ace6fe68987f62638aa8f2991523bc5cf36f40",
+  "product": "FM-1_1000901",
+  "version": "0.9.1",
+  "v": "602af943"
+ },
+ "monk": {
+  "sha256": "76fe9af0ab18b49e197ebae2224daf8a354424bd89cd241527a85bf7048eb192",
+  "product": "FM-1_5000901",
+  "version": "0.9.1",
+  "v": "c8c4b160"
+ },
+ "loom": {
+  "sha256": "a145fc0f1077b97341cc95a3d963f8249faa49249fdd726f989c49054959e463",
+  "product": "FM-1_10001100",
+  "version": "0.11",
+  "v": "949a86bc"
+ },
+ "mutable": {
+  "sha256": "d6682e1433f581285333f23629be20b96a595707776c6359d22d14e6542d6bda",
+  "product": "FM-1_710010400",
+  "version": "1.4",
+  "v": "caff4340"
+ },
+ "nachtfahrt": {
+  "sha256": "0047a4e7fc64d5144fd43e4f99a14358ab0f67b0dd49dabf5b20fb3f13442a04",
+  "product": "FM-1_197000909",
+  "version": "0.9.9",
+  "v": "082a5257"
+ },
+ "obervave": {
+  "sha256": "1e81096eaa61b280cbb4b2c174c0f47eff96a0fe5beba0b647ef2572d85c1a28",
+  "product": "FM-1_9533",
+  "version": "3.3",
+  "v": "fb12247e"
+ },
+ "mono2k": {
+  "sha256": "df5bc21caab14c4cb80430ef958b0400007839715e93820177ee033288e59e83",
+  "product": "FM-1_980",
+  "failed": "blank screen"
+ },
+ "orbit": {
+  "sha256": "11ca7174c48c9decdef809af940e1b41d54b7c927abeedafa7b7864ce8dc374b",
+  "product": "FM-1_900",
+  "version": "0.10.0",
+  "v": "b0dc79c8"
+ },
+ "polly": {
+  "sha256": "2dea2914b4628f075cf3605fae7a75afc03a4b2ae2d7823d8ccf4bf16dd986c7",
+  "product": "FM-1_3000500",
+  "version": "0.5",
+  "v": "4ece128d"
+ },
+ "optimist": {
+  "sha256": "926f08a95fa0e00f988bfd73f82fd8df130b9a8e4aa95a98e3aca925ec9b89a7",
+  "product": "FM-1_722",
+  "version": "0.2",
+  "v": "19632b28"
+ },
+ "rainbow": {
+  "sha256": "7674dbb8762ded53542b3c299dde21438ea773c57c5c803c08ba1a7fe59caed4",
+  "product": "FM-1_911",
+  "version": "fm1-rescue-test",
+  "v": "c5d99971"
+ },
+ "perf1": {
+  "sha256": "00630e8f0b8f1c28f83acf6ff3b5b773a967bd231113df2409bbce0bd6e9110d",
+  "product": "FM-1_7001600",
+  "version": "0.16.0",
+  "v": "97ea3e13"
+ },
+ "ptfm": {
+  "sha256": "91deae9e804c737e2e78ae88726dbd9e52ca40fc552ea87e3924d98a83681b2a",
+  "product": "FM-1_7101",
+  "version": "0.26",
+  "v": "f696b164"
+ },
+ "s1vave": {
+  "sha256": "d14b1b4a0c25b38c9839271a0262c0f620be997234dedc09d53a9d7114da7419",
+  "product": "FM-1_951",
+  "version": "1.11",
+  "v": "1864009c"
+ },
+ "sidj": {
+  "sha256": "766d64431391ab4ead08fdc5f5c66b05c5a4ae004b4f985569609298e2b6b931",
+  "product": "FM-1_64010200",
+  "version": "1.2.0",
+  "v": "5a3c0761"
+ },
+ "sidou": {
+  "sha256": "31b73ec12f361d2638acedee1ae7121ade22b9fa9b38c4a36ed5a47bb56b06de",
+  "product": "FM-1_964",
+  "version": "1.1.0",
+  "v": "76f0c466"
+ },
+ "skiff": {
+  "sha256": "0cfae2431f351365d83842bf1a381ee48baead371e81f77faaa2b3c6aabbd304",
+  "product": "FM-1_721",
+  "version": "2.1.1",
+  "v": "1c5f9294"
+ },
+ "remotefm1": {
+  "sha256": "11680a48829ee5f4687da1148a60df192eb97e39d333ae18fd63931e3cd7e724",
+  "product": "FM-1_52000301",
+  "version": "0.3.1",
+  "v": "3dba05ff"
+ },
+ "smileyface": {
+  "sha256": "24805ea5f5eea549905914c054c6934de9b00943858335681c038ddae30eb8da",
+  "product": "FM-1_303",
+  "version": "1.0.0",
+  "v": "83bc038c"
+ },
+ "sqrl-1": {
+  "sha256": "9a8325db718e8d0a30c6b8a56aaa3cfac0d1f4b03bb7d62ef0160a60ebd4f1ba",
+  "product": "FM-1_950",
+  "version": "1.0.0",
+  "v": "c834b1f2"
+ },
+ "vesper": {
+  "sha256": "297857177ecb810cc4b98ed47237f6abd681d190b0239e79ebb49fc84c41e80b",
+  "product": "FM-1_8837201",
+  "version": "vesper-2.0.1",
+  "v": "75d313ba"
+ },
+ "amb-1-smk-37": {
+  "sha256": "756f7a49dcb4972d44cb08d4a9f82b10a61c9bb787c5fcd347533fc145081196",
+  "product": "SMK-37 Pro_700",
+  "version": "smk37-v1.1",
+  "v": "f5269c0c"
+ },
+ "b1-drawbar-organ": {
+  "sha256": "bba66af899af865b3e0a38ac3ab60539a1391dfda543175b06cc1a6e757e3db4",
+  "product": "FM-1_481026",
+  "version": "V4.9beta",
+  "v": "4b4e534d"
+ },
+ "tonitor": {
+  "sha256": "d44a89680f1ab9588f64b2c1991af593c6a73908663718df11c1d040640b3b32",
+  "product": "FM-1_700",
+  "version": "2026.10.31",
+  "v": "153a285d"
+ },
+ "beetle": {
+  "sha256": "6754b272d99284d218a9040ebb609187fdeec0e6fcd134bbb2f0b9a37f400d31",
+  "product": "FM-1_2123",
+  "version": "V1.8",
+  "v": "04bab14e"
+ },
+ "x0x": {
+  "sha256": "a0c29deb930c65f1d40b5691b7d673f861418b438b7e65027cb9c671e6f44f5b",
+  "product": "FM-1_9010100",
+  "version": "1.1.0",
+  "v": "85486668"
+ },
+ "coralflower": {
+  "sha256": "de41c96a0979927d921a99064aca1b43cb871a5ab10736342abf22cab2845a22",
+  "product": "FM-1_930",
+  "version": "0.6.1",
+  "v": "f7e1306d"
+ },
+ "double-rainbow": {
+  "sha256": "f4cff0907a3ed558349b8e68114bf1360ef33aa5a5de69f6076a35af39cf3275",
+  "product": "FM-1_90131",
+  "version": "latest",
+  "v": "42e2e761"
+ },
+ "clipper": {
+  "sha256": "cb976dff03c73032d1265be2a925bf0ec703565096c03aba3c72a818ab4628f1",
+  "product": "FM-1_900",
+  "version": "1.3",
+  "v": "56a14728"
+ },
+ "clipper-pro": {
+  "sha256": "f8b539209d8650a2be3bb896e4565749119d7ee75602dab281d667599cabbb86",
+  "product": "SMK-37 Pro_900",
+  "version": "1.3",
+  "v": "56a14728"
+ },
+ "dub": {
+  "sha256": "19cc9649583192d0634467e18e28532078d4d7889231c9e842da7fb4ff869c0a",
+  "product": "FM-1_8010403",
+  "version": "1.4.3",
+  "v": "2aa37ed4"
+ },
+ "etch": {
+  "sha256": "65bcb51012d81c9c8206c4843ce04b5c03177b8f09ed74313799ebec0798330f",
+  "product": "FM-1_1500",
+  "version": "V1.88",
+  "v": "6ef28dbb"
+ },
+ "fmel": {
+  "sha256": "0e6b9b31d422e875b035db06f7c82aba91f53bbffd0038cdbf7c3f5a726a920a",
+  "product": "FM-1_950",
+  "version": "1.0",
+  "v": "89f1a9b4"
+ },
+ "fmlarynx": {
+  "sha256": "6d15be0e9804fb0588cefc6e312245aa257252365dffac694b6fd8106a3d8c30",
+  "product": "FM-1_984",
+  "version": "0.1.1",
+  "v": "c56ec69c"
+ },
+ "fomni-smk-37": {
+  "sha256": "d99cabd903362d6c5bd05065a63f1cd052eac68f59503d8c7505d630e5ddf7eb",
+  "product": "MKE-P37_800",
+  "version": "smk37-v0.2",
+  "v": "28514429"
+ },
+ "kwasub": {
+  "sha256": "da7bb99b016a83eaa2ca063ed8e98084e170364e3223a9f2174ee4143ee31ed7",
+  "product": "FM-1_1990",
+  "version": "1.0.46",
+  "v": "b7f13f24"
+ },
+ "fizz": {
+  "sha256": "931df76eb1a966270b8551cd642dd8f85ebad81d1a770ec38959b23b79c62385",
+  "product": "FM-1_46001200",
+  "version": "0.12.0-beta.12",
+  "v": "a204318d"
+ },
+ "kawa": {
+  "sha256": "c26d121dd0ce0f753110f0fb21d250d67239c41a9525e9ebda869cc6eb21e9d9",
+  "product": "FM-1_956",
+  "version": "0.6",
+  "v": "e780fae8"
+ },
+ "mope1": {
+  "sha256": "5a58b365b00e1a41a334fca8a36342a08ac8f5f2a35c03a21b4770bbcd1e02df",
+  "product": "FM-1_6673000300",
+  "version": "0.3.0",
+  "v": "98557601"
+ },
+ "niagara": {
+  "sha256": "63525a135cc8168c5c183648f04da7f2154f6be7d6d97bb46bca93c19934476e",
+  "product": "FM-1_8000200",
+  "version": "0.2",
+  "v": "f1ece420"
+ },
+ "polly-smk-37": {
+  "sha256": "77a18739444a40f93168b01579e5b11bd7289860e296a6ca5a97b75a629fce29",
+  "product": "SMK-37 Elite_300",
+  "version": "smk37-v0.4.1",
+  "v": "4ece128d"
+ },
+ "kitten": {
+  "sha256": "d9b923b7d8bfbf007426710b53a20b0c8887fb8bb452a811b79d77f71308d426",
+  "product": "FM-1_969",
+  "version": "2.8-kitten.4",
+  "v": "65fab592"
+ },
+ "prysm": {
+  "sha256": "f74cd6ffe2e4bec65d5b531cdab8de825f57bc1c71dbd2e6ef55ee0358807ab1",
+  "product": "FM-1_989",
+  "version": "1.3",
+  "v": "b4552fff"
+ },
+ "penumbra": {
+  "sha256": "add8b38f657229736cde5302740ca4b7e7f2b30fceb4be2199e30da489838c09",
+  "product": "FM-1_73010000",
+  "version": "1.0",
+  "v": "9e7aa3cb"
+ },
+ "sloop-pro": {
+  "sha256": "7c18163fd2088663ff057b729419e4ff3b08ceb77ad72072fced3c26a8aeb80a",
+  "product": "SMK-37 Pro_900",
+  "version": "2.8.4",
+  "v": "ebb0175f"
+ },
+ "sloop": {
+  "sha256": "5a6a0843c868650dba6718cf85e43e719aec18c3dc5cc803c57c38b382158d4e",
+  "product": "FM-1_900",
+  "version": "2.8.4",
+  "v": "ebb0175f"
+ },
+ "xmod": {
+  "sha256": "e985c66c5e19cabc6ee6b102c3aba7fe5f663a312a4cceb5cb735ee5f5519697",
+  "product": "FM-1_666",
+  "version": "1.2.0",
+  "v": "2fd0b17c"
+ },
+ "synthesthetic": {
+  "sha256": "993e4e45f660db226d5e2703cf5ee1928b09893184a68b73397b459ea0be0bda",
+  "product": "FM-1_953",
+  "version": "0.3-beta",
+  "v": "487afdee"
+ },
+ "chipbox": {
+  "sha256": "36474c2fdd8f86d13a1f1f34bf72c303cc937becb08b206b78c83261c33b9bab",
+  "product": "FM-1_337",
+  "version": "1.4.0-helpfulharold",
+  "v": "a82c09c1"
+ },
+ "x0x-smk-37": {
+  "sha256": "b577c6aceac17ebe94753046394775153a743eb29502806478fbb2303a416e61",
+  "product": "SMK-37 Elite_900",
+  "version": "smk37-v0.2",
+  "v": "85486668"
+ },
+ "daurade": {
+  "sha256": "f2b799da33ba710f0598de0c004be18b58b50ae18e0dbe005d889de4a09e8b1b",
+  "product": "FM-1_900",
+  "version": "0.1",
+  "v": "58594a73"
+ },
+ "dungeontracker": {
+  "sha256": "76395b50b99b4448c7d38fc6e6fc69a970438441f2f9ee2efe6f736e876fc8f5",
+  "product": "FM-1_910",
+  "version": "1.0.0",
+  "v": "1dfe8d2f"
+ },
+ "flyfish": {
+  "sha256": "d44d6b1b0eeb547fd590b882747f880ca271585a4cb434b2fe497f03d9080694",
+  "product": "FM-1_900",
+  "version": "1.0.3",
+  "v": "bf13d01c"
+ },
+ "fm1quest": {
+  "sha256": "9c29c3e72e4380c478faf68f77e418c05f2a8ae2dc08bdce8d84fd6619130a64",
+  "product": "FM-1_900",
+  "version": "quest-39",
+  "v": "330e808a"
+ },
+ "frodhes": {
+  "sha256": "ecf62e5420e1e5da5a01078ceb2c54d765c940d93070b90afc064c669297eaf3",
+  "product": "FM-1_958",
+  "version": "0.9.7",
+  "v": "d6f455c0"
+ },
+ "j6": {
+  "sha256": "0bf0a53e4213e070917650294acf92c8bf83f12b2539f78aee29de9330f3de8f",
+  "product": "FM-1_66010400",
+  "version": "1.4.0",
+  "v": "8fb9736f"
+ },
+ "jam": {
+  "sha256": "d6711eff80af67e20a1be59474f9c19e2eff06daeb0565906c4632bc4594891b",
+  "product": "FM-1_7666200",
+  "version": "1.2.0",
+  "v": "0c6f2cfc"
+ },
+ "makohai": {
+  "sha256": "0750576c0ae6c888e7d38122d8c6a3e9fd0c8a0887db4031c0867e94048cb07c",
+  "product": "FM-1_47625642",
+  "version": "1.3",
+  "v": "88e351d3"
+ },
+ "oplbox": {
+  "sha256": "2b1576873d3eb2e5d0929169e1a3c6618e98e28afb1aa9a9ddba4c5e4db49500",
+  "product": "FM-1_964",
+  "version": "0.4.2",
+  "v": "fb408489"
+ },
+ "opx": {
+  "sha256": "a4a917bfaeaf9d77ff4221979af5ca017075a47e9504f1c28fe6ce163a1a37bc",
+  "product": "FM-1_9001",
+  "version": "0.2.0",
+  "v": "f0f82c54"
+ },
+ "pigeon": {
+  "sha256": "a6cbb4fbd80baa38eb99400bb4bef5ddd5d4167024a8342189a07bc6b8861bed",
+  "product": "FM-1_900",
+  "version": "0.5.0-beta.1",
+  "v": "acc6c609"
+ },
+ "sill": {
+  "sha256": "941054517ccfeacc250ab1e33d613a691a37419a01e2091c348b0472bc701f7f",
+  "product": "FM-1_900",
+  "version": "1.0",
+  "v": "b4367cca"
+ },
+ "melodee": {
+  "sha256": "172afb5b000f093bbe060922e76e11cd9334b12895a7e659bd20da515fb2d640",
+  "product": "FM-1_91051",
+  "version": "1.5.1",
+  "v": "e3ab8a5d"
+ },
+ "tuna": {
+  "sha256": "1de5005868c1a329fcbc7be337102aa051f8efc0cd70cfdc5cf6615ced42e002",
+  "product": "FM-1_900",
+  "version": "1.0",
+  "v": "7e88c3a7"
+ },
+ "fm1gm": {
+  "sha256": "4b093ef506dcb70c45880271aa347106ecaec6062c5072a5128a8275eb32b418",
+  "product": "FM-1_600",
+  "version": "1.1.1",
+  "v": "ac076568"
+ },
+ "hortator": {
+  "sha256": "f7773531bb4c349d0262249a4acf522c71250d64de2e96d29b3d92d215763963",
+  "product": "FM-1_900",
+  "failed": "blank screen"
+ },
+ "nauclerus": {
+  "sha256": "b496e081fd78c05eaa3cd368caf384285ec7b708477c5ff638f373e6a3c2a870",
+  "product": "FM-1_25000",
+  "failed": "blank screen"
+ },
+ "demake-synth": {
+  "sha256": "b496d0efdfc403dba0d447a7987331cd7dbe2a5dbc8908cafbc2154f72f584da",
+  "product": "FM-1_969",
+  "version": "0.4.24",
+  "v": "897d6be6"
+ },
+ "spellbox": {
+  "sha256": "b4b3f5ca96c4f7f5971586e9ada95cc343d789a8d4b3761b832c39f0920a4c05",
+  "product": "FM-1_573",
+  "version": "0.3",
+  "v": "fbdb3019"
+ },
+ "unholy": {
+  "sha256": "025bec05d71da1b106ecb05d52e165ea6592812e92209cfe2626278047f7abba",
+  "product": "FM-1_80023",
+  "version": "0.2.3",
+  "v": "260059c2"
+ },
+ "berlinan": {
+  "sha256": "660b2a0059ec1d002d59dd1fb1ff86f93510a6468ddd385073db22d59cf478d1",
+  "product": "FM-1_23000501",
+  "version": "0.5.1",
+  "v": "99769cf4"
+ },
+ "spampy": {
+  "sha256": "f7c1cde01c66a24e11e8cec43a09529f3b5096d4f2982d7d5c05f1f2cf0e702f",
+  "product": "FM-1_949",
+  "version": "r949",
+  "v": "be468011"
+ },
+ "terkinstein": {
+  "sha256": "985c1000dc58dd0afeafb18185a5de980795908166e9356d4c72fd07e656708f",
+  "product": "FM-1_986",
+  "version": "0.26.19",
+  "v": "b49241fa"
+ },
+ "delrio": {
+  "sha256": "61b141e326829e53de7dc92d9654c31e9f8b07306d47de3e815d18a147943895",
+  "product": "FM-1_48000900",
+  "version": "0.9",
+  "v": "0ec17fc2"
+ },
+ "quod": {
+  "sha256": "9bd1127405c37ed67fcbf646c0a42e9fda00bfed5e40e7fe883bc5694bdbaa9d",
+  "product": "FM-1_Q03",
+  "version": "0.3",
+  "v": "6fb090a5"
+ },
+ "fm1-sid": {
+  "sha256": "30fbbeb839e34eb9cd06b543b9142cce3a937d6b0a221e9985412cebba324ed3",
+  "product": "FM-1_900",
+  "version": "0.3",
+  "v": "a29f2dab"
+ },
+ "mnm1": {
+  "sha256": "d44011bf035314c037e16ab36a8e7895d9274732329e1d60e0bd94bd512eabf9",
+  "product": "FM-1_61000100",
+  "failed": "blank screen"
+ },
+ "forge-one": {
+  "sha256": "dff3a38f7e5b9833e15aba322558c9485e9e422e3ff813c616c91b3584a2d909",
+  "product": "FM-1_916",
+  "version": "latest",
+  "v": "2533220a"
+ },
+ "saadet": {
+  "sha256": "fedafffd66fe35dc7fad57e11e5e6cb6adcfa21fb92760ccc3f9920c8fb30684",
+  "product": "FM-1_9000101",
+  "version": "0.1.1",
+  "v": "371c0959"
+ },
+ "x0x-extended-edition": {
+  "sha256": "0aedc953384583a22085a77f1e619399d7354a97563e4f4e2b6bab944cd9c716",
+  "product": "FM-1_9000132",
+  "version": "0.1.32-straightbeta",
+  "v": "1889c0d6"
+ },
+ "golana": {
+  "sha256": "49806d009e140d1e90a1396d0f8caf54870d9d633d3ade2718ec0461b9501745",
+  "product": "FM-1_913",
+  "version": "golana-v1.3",
+  "v": "d6d0875e"
+ },
+ "guitchordi": {
+  "sha256": "330396f043093bcdda65aacbd0098dd1fc1f253a17d5707db19ff5d971e05217",
+  "product": "FM-1_982",
+  "version": "0.1.0-beta.1",
+  "v": "abf7ebd8"
+ },
+ "tastywaves": {
+  "sha256": "b94d8e4b118ced2aa78c31a19119f5e538f58165aa8d9146a473c57e58d9dcad",
+  "product": "FM-1_937",
+  "version": "1.0.1",
+  "v": "56b861ac"
+ },
+ "modular-one": {
+  "sha256": "beab4e0e28ff2ff3ef5073d6d63fa257c466c0fca25ba984f0f59335665184ca",
+  "product": "FM-1_900",
+  "version": "0.1-beta",
+  "v": "e7940bd8"
+ },
+ "mini-vision": {
+  "sha256": "a53432d8fa30b7e78337053ff7536a0488a74bdc915521513bb95260ef0c8e9f",
+  "product": "FM-1_900",
+  "version": "minivision-1.0.1",
+  "v": "7444d3a6"
+ },
+ "monohull": {
+  "sha256": "6ed6e01d76066f1e7cefae7b528822de89d62b77ca2e7470d7ce81ee0570a83c",
+  "product": "FM-1_928",
+  "version": "0.2.0",
+  "v": "167c2674"
+ },
+ "drift": {
+  "sha256": "297a0c55a6323cafe5f38beb28a6f2cbd847a6b54f8419e184df7d233b1e9d14",
+  "product": "FM-1_983",
+  "version": "0.9.1",
+  "v": "1954e090"
+ },
+ "melodee-waveloop-build": {
+  "sha256": "59e4aabfc8ff510339f74a25ce09c7b08ea1d2ce3a354c9a1e34a0546189885c",
+  "product": "FM-1_91041",
+  "version": "latest",
+  "v": "7d5dffc3"
+ },
+ "waveloop": {
+  "sha256": "e9529deb7ff626ee64b08fe06a550e39cd2a99c3cc1697bfcb65828f030cf22d",
+  "product": "FM-1_910",
+  "version": "1.0.5.2-midi23",
+  "v": "7d35d9f8"
+ },
+ "felucca-w33tsnx": {
+  "sha256": "ddca47eb793e30edb408578ac94b349e9afe3abebaee2a1af48009c4be0c7811",
+  "product": "FM-1_900",
+  "version": "latest",
+  "v": "0c4204c5"
+ },
+ "masif": {
+  "sha256": "64c8d8dd1a48189ad370e8e149107f69c44311659bac6bf88116634b61bd46ab",
+  "product": "FM-1_961",
+  "version": "0.1",
+  "v": "562ce9ff"
+ },
+ "tonic": {
+  "sha256": "7480de7f5cdbd47bd6dbbcc039d06639ca87ab611795942b15ff88781c579034",
+  "product": "FM-1_47001200",
+  "version": "0.12",
+  "v": "6d7d5a54"
+ },
+ "bongo-cat-studio": {
+  "sha256": "6796ac71b56b2bffbd35a18ee6df5a0e8010ee9a16714c9c64a716b10c6c3a39",
+  "product": "FM-1_980",
+  "version": "0.4.0-rc1",
+  "v": "e4480599"
+ },
+ "fm1-radio": {
+  "sha256": "8849cff2068bc47f118db3c85d76a5ff07f56b0f310ef9f0465bfd9591fd51f4",
+  "product": "FM-1_13010300",
+  "version": "1.3",
+  "v": "6db5677a"
+ },
+ "luogu": {
+  "sha256": "4e7d9262e55b57fab36b0660770952528b9333f62971fcc7e9c5bd3aedb81199",
+  "product": "FM-1_53010001",
+  "version": "1.0.1",
+  "v": "eb997958"
+ },
+ "brutal-fm": {
+  "sha256": "6fcf5c16f3221a87581641935c4b373053cc746760d9d911e4ec94f3510c9661",
+  "product": "FM-1_700",
+  "version": "0.1.5",
+  "v": "e78effeb"
+ },
+ "shineon": {
+  "sha256": "72070fba5d9c27b67ae8d62d663d41c9adf0992556ea3c36f1762eeccee5d835",
+  "product": "FM-1_9630",
+  "version": "3.0.1",
+  "v": "b995ffb5"
+ },
+ "fm1-keyboard-academy": {
+  "sha256": "c65d04439f57011d43483d336c501472a3e38ac51ebed327093225b5b30bff7c",
+  "product": "FM-1_8241004",
+  "version": "0.1.2",
+  "v": "53aed16f"
+ },
+ "modelar": {
+  "sha256": "14de4b6efdc5550149fe745158b22929d13fcfa6268bc751ace7eb27f21ffeac",
+  "product": "FM-1_42000300",
+  "version": "0.3",
+  "v": "59b247f1"
+ },
+ "cs1": {
+  "sha256": "abde7ad1503e39c92d5d476f0a30799491f0e459307e67e4be8cb73e86f94c68",
+  "product": "FM-1_950",
+  "version": "0.3.2",
+  "v": "65f44829"
+ },
+ "clipper-smk": {
+  "sha256": "f1e96a0726dc2522643cf1e0b18afe3938e061927305d483672c5bf817b00074",
+  "product": "SMK-37 Pro_900",
+  "version": "latest",
+  "v": "7daaf177"
+ },
+ "melodee-smk-37": {
+  "sha256": "622a8f3d02b12627b489d966a3568f714ed1b3a32d851fd2a7cd03a020188676",
+  "product": "SMK-37 Pro_91045",
+  "version": "latest",
+  "v": "e3ab8a5d"
+ },
+ "drift-i-am-maxpower": {
+  "sha256": "964970d49f4e85ebdaddc6f21054870b47491c9252d9dafe617b8b50db23b146",
+  "product": "FM-1_5000101",
+  "version": "latest",
+  "v": "04845985"
+ },
+ "haunted-fm1": {
+  "sha256": "4bbcd30c73a0f721bf53dcf4339892b78a9c2e14d876743642313daf4dc7bd9f",
+  "product": "FM-1_72000100",
+  "version": "0.1",
+  "v": "95a518e6"
+ },
+ "modular-1": {
+  "sha256": "8197e3e5acefb40f0d334ddd21ec216372cfe1c38cac31d9e922246d7d1fea53",
+  "product": "FM-1_800",
+  "version": "1.0.3",
+  "v": "694a1ca3"
+ },
+ "spiralfm1": {
+  "sha256": "a96c4cdec5e2d62f18ce9f6416b98aa59f45f599419b228f38182d30e2736b83",
+  "product": "FM-1_900",
+  "version": "latest",
+  "v": "84761fe9"
+ },
+ "yanfei": {
+  "sha256": "8675e8cf55771336b50971fc8da81725d8ffc0848dba96441d7ebb7d7e2bd075",
+  "product": "FM-1_900",
+  "version": "latest",
+  "v": "8e39a793"
+ },
+ "ambwave": {
+  "sha256": "4605411cfa91ba5143c79523837db7b09a19abf2bf4bf3f2a40e95c1b81a2933",
+  "product": "FM-1_900",
+  "version": "0.1.0",
+  "v": "e2e68969"
+ },
+ "bytemania": {
+  "sha256": "0e8590d499950d2e062bce460a53543bf314f5bf08928313b3601cdc320460af",
+  "product": "FM-1_942",
+  "version": "1.2.0",
+  "v": "0e662bd4"
+ },
+ "picovave": {
+  "sha256": "936e6924cf802366f54dc2fa3062d079094d39698f4ef9ccb2287fee6c41dff3",
+  "product": "FM-1_900",
+  "failed": "blank screen"
+ },
+ "notesorcery": {
+  "sha256": "2a47080c14038709f396447dfaf55b32686d818b0d0f348f212c2a7312431e57",
+  "product": "FM-1_9603",
+  "version": "botanica-v0.3",
+  "v": "3937aa89"
+ },
+ "odeath-wave-1": {
+  "sha256": "0a17a97e8603df570539b35f8d0a9cf12d1cb538db5bbe357c3f0e3f9b9a1dad",
+  "product": "FM-1_900",
+  "version": "latest",
+  "v": "f082e73c"
+ },
+ "nmsfm": {
+  "sha256": "a0852a4ed57a5b6a96531dc4eddd65fc855f08aa815a1198dd4d546b49eb0e20",
+  "product": "FM-1_900",
+  "version": "0.5",
+  "v": "d202abc7"
+ },
+ "bop-1": {
+  "sha256": "0b9375aa4a586e6ac57a72392998b2de152752da39a94382e5e9b8191e3bf97a",
+  "product": "FM-1_61000100",
+  "version": "0.1.0",
+  "v": "6c92d082"
+ },
+ "baud-girl": {
+  "sha256": "7b169a69b30570581d0ebc7b44851e3e08898d2956ade155363bcf18fac5c348",
+  "product": "FM-1_102",
+  "version": "FM-1_102",
+  "v": "cdd7ecd6"
+ },
+ "bunker": {
+  "sha256": "db0b50d0ae9c3bfccee76e3b93de09fffa55389169278a0c5899dad9c79e6bb8",
+  "product": "FM-1_7100002",
+  "version": "1.0.0",
+  "v": "2d1267f4"
+ },
+ "cutador": {
+  "sha256": "5d4be92061cc5bf1396d3ff599ac3a1ef9ec1261afe003b74e32f4298307f614",
+  "product": "FM-1_7010201",
+  "version": "1.2.1",
+  "v": "ea7ca561"
+ },
+ "fm-plaits": {
+  "sha256": "f3b9cd127dcb02acc19ed5490b2b488c3b7f5344ae7a31003d32a29ee3a984ca",
+  "product": "FM-1_8000014",
+  "version": "latest",
+  "v": "decb4c7b"
+ },
+ "more-chords": {
+  "sha256": "410d52b2500d7d79ed1956d425fdc5874c3c7f617df52adb2018e0ece64f06f6",
+  "product": "FM-1_920",
+  "failed": "blank screen"
+ },
+ "golanadz": {
+  "sha256": "12515f4f33ac2f323b1c6b998117ab7aa5a0cde30bf7caa2a64cc68a114e67ed",
+  "product": "FM-1_902",
+  "version": "0.2.2-beta1",
+  "v": "6a7fff4f"
+ },
+ "kidboy": {
+  "sha256": "d4c4fe43f2970b45a5be8a67c45a8206590da59b29ef6e96454cbdce836d959e",
+  "product": "FM-1_938",
+  "version": "0.1",
+  "v": "71adba4e"
+ },
+ "transitfm1": {
+  "sha256": "d1b027d5fcafc374ff174bbd5f3b6dac7686554f5a3f44c04cc4d30cc3213baa",
+  "product": "FM-1_015",
+  "version": "0.1.3",
+  "v": "4943a346"
+ },
+ "fm1-betis-mode": {
+  "sha256": "e1ed23a7cdda6ead21a413723de3390cf4875dfc6e5f1a05285a3bc928dbca02",
+  "product": "FM-1_8000013",
+  "version": "latest",
+  "v": "cd415966"
+ },
+ "fmel-1-smk-37": {
+  "sha256": "4fb10421f223bb71000e461f1262e5b4b1dc5e61c9e9fb475c3c990b07b11660",
+  "product": "SMK-37 Pro_451",
+  "version": "latest",
+  "v": "3d1f518b"
+ },
+ "selva1": {
+  "sha256": "cd4b8f82764beb3c71d065805c43cbba6c4217ab7b2607cceaf88cf0d0cf2461",
+  "product": "FM-1_901",
+  "version": "0.2.0",
+  "v": "de976a7d"
+ },
+ "rambeaver": {
+  "sha256": "045f7386e5a33efbb1b544d5a3e34aafa4d3a4b33a133312080cbaec4126c79f",
+  "product": "FM-1_745",
+  "version": "745",
+  "v": "6bb3723e"
+ },
+ "rom-1": {
+  "sha256": "cc670b99897058ad6b7fff3094b640a40d4be6a765bd8492e647b6834ef54557",
+  "product": "FM-1_0000101",
+  "version": "0.1.1",
+  "v": "f77d0dbb"
+ },
+ "sid1": {
+  "sha256": "4ee3dbe2079ea066e33a3843ec8e508e9eab191a500cad4944e00fd603683838",
+  "product": "FM-1_960",
+  "version": "1.0.0",
+  "v": "9bd3e4d1"
+ },
+ "amb-1-evolved": {
+  "sha256": "61755b43e6dad1080b0db84aad36972116be703fdf4ff910c5b2c8c1b4546e5b",
+  "product": "FM-1_7080001",
+  "version": "E1",
+  "v": "abb2b646"
+ },
+ "fm1-p6": {
+  "sha256": "7fa7f6ca8c58f7605266d581e2b2228f8f932a960d6cc30f1c2df7599c7aa3f9",
+  "product": "FM-1_8000100",
+  "version": "latest",
+  "v": "30544317"
+ },
+ "therefmb1rth": {
+  "sha256": "5f9182ee31762088ab01dc6bc00913e6705b896c97182c09221cd3bd29fcb031",
+  "product": "FM-1_900",
+  "version": "0.1.0-beta.18",
+  "v": "c71e8c58"
+ },
+ "choralroot-j-6": {
+  "sha256": "ec84b99aac5b00e6a4d43bdaaf48ec804fe8930050a1581217683feb10bddb2b",
+  "product": "FM-1_920",
+  "version": "0.23-j6",
+  "v": "2c41be3f"
+ },
+ "trumpagotchi": {
+  "sha256": "cf05c608818d54ad9b4061968f5f67de34ad41faa45672852c82774ed8277222",
+  "product": "FM-1_710",
+  "version": "1.0.0",
+  "v": "2cee612f"
+ },
+ "winampfm-smk-37": {
+  "sha256": "e710e568955928d2a695484659e7d7dc9ae13f06114b93efb81a4ada1bc05f7f",
+  "product": "SMK-37 Elite_900",
+  "version": "smk37-v0.1",
+  "v": "58979e99"
+ },
+ "smk-37-pro-fl-studio-port": {
+  "sha256": "fa7c2a9f3ca173f608e8afd54c9190b9cec82af6cae76d9acbea3de0c9124726",
+  "product": "SMK-37 Pro_916",
+  "version": "0.1.2-experimental",
+  "v": "68d3173a"
+ },
+ "redacted": {
+  "sha256": "05e1cbcaae3ea011595e51bdcc5f69cf79115a477b462b324b87c87907926f94",
+  "product": "FM-1_900",
+  "version": "0.5.1",
+  "v": "fee6a0db"
+ },
+ "smk-37-pro-acidsound-mod": {
+  "sha256": "fd449b93afc2a9abe777cee10f810e3f4618b8a6b745391f73d8b7d5959fa886",
+  "product": "SMK-37 Pro_015",
+  "version": "15-s1c6-reset-signature-isolation",
+  "v": "61444626"
+ },
+ "fm1-doom": {
+  "sha256": "6e23e322d16923e8653b9ecc5e78d891c7a372f9f0fd786d0031f177f0e242c1",
+  "product": "FM-1_985",
+  "version": "0.5",
+  "v": "11571931"
+ },
+ "sloop-alg": {
+  "sha256": "3017149d3de8e4b324b5bb1629bf30fc1b0b7745627e23927fa543b4626e8ee9",
+  "product": "FM-1_985",
+  "version": "latest",
+  "v": "14f13574"
+ },
+ "smk-37-pro-custom-mod": {
+  "sha256": "fe51c1c6eba90dc9aabe40900457aa1c1ddb3d9c32391335b1aceaded1d2035f",
+  "product": "SMK-37 Pro_022",
+  "version": "022",
+  "v": "bb793d7f"
+ }
 }

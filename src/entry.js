@@ -68,6 +68,9 @@ export function parseRepo(s) {
 
 export const repoKey = (repo) => (repo ? repo.toLowerCase() : null)
 
+// listings live at mutant.cloud/<id>, so these can never be ids (the site's own paths, and some for later)
+export const RESERVED = new Set(['api', 'auth', 'p', 'make', 'new', 'mine', 'try', 'edit', 'versions', 'shots', 'firmware', 'catalog', 'about', 'admin', 'login', 'logout', 'static', 'assets', 'index', 'app', 'style', 'favicon', 'og', 'robots', 'sitemap', 'well-known', 'cdn-cgi', 'search', 'tags', 'tools', 'devices', 'help', 'docs', 'blog', 'news'])
+
 // who an author is in links and filters (?author=): their GitHub login if there's a repo, else their name as a
 // slug. public/app.js has the same function; keep them in step.
 const nameSlug = (s) =>
@@ -79,6 +82,20 @@ const nameSlug = (s) =>
     .replace(/^-+|-+$/g, '')
 export const authorKey = (e) => (e.github || nameSlug(e.author)).toLowerCase()
 
+// the device IDs ("FM-1_745") a listing's current files report: what devices and apps identify it by
+export const deviceIds = (e) => [...new Set([...(e.release?.assets || []), ...(e.prerelease?.assets || [])].map((a) => a.product).filter(Boolean))]
+
+// a device ID as typed: "FM-1_745", "fm-1 745", or just "745" (an FM-1 one); null if it isn't one
+export const ID_MODELS = ['FM-1', 'SMK-37 Pro', 'SMK-37 Elite', 'MKE-P37']
+export function parseDeviceId(s) {
+  const t = String(s || '').trim()
+  if (/^\d{1,10}$/.test(t)) return `FM-1_${t}`
+  const m = t.match(/^(fm-?1|smk-?37 ?pro|smk-?37 ?elite|mke-?p37)[ _-]*(\d{1,10})$/i)
+  if (!m) return null
+  const model = ID_MODELS.find((x) => x.replace(/[- ]/g, '').toLowerCase() === m[1].replace(/[- ]/g, '').toLowerCase())
+  return model ? `${model}_${m[2]}` : null
+}
+
 // the list filters, shared by the site's links and the JSON endpoints:
 //   device, kind (firmware | tool | all), tag, author, base, q (all words must match)
 export const FILTERS = ['device', 'kind', 'tag', 'author', 'base', 'q']
@@ -89,7 +106,7 @@ export function matches(e, f) {
   if (f.author && authorKey(e) !== f.author.toLowerCase()) return false
   if (f.base && e.base !== f.base) return false
   if (f.q) {
-    const hay = [e.name, e.author, e.description, e.repo, e.base, BASE_INFO[e.base]?.name, ...e.tags].join(' ').toLowerCase()
+    const hay = [e.name, e.author, e.description, e.repo, e.base, BASE_INFO[e.base]?.name, ...e.tags, ...deviceIds(e)].join(' ').toLowerCase()
     if (
       !f.q
         .toLowerCase()
@@ -221,11 +238,14 @@ export function effective(row) {
   e.author = e.author || e.github || 'unknown'
   if (!e.authorUrl && e.github && (!data.author || data.author === auto.author)) e.authorUrl = `https://github.com/${e.github}`
   e.devices = e.devices?.length ? e.devices : ['fm1']
-  // the card's picture: the owner's, the maker's card (fmhub.json), the emulator's screenshot, then any repo picture
   // the emulator screenshot, if one was taken (row.shot: its version in public/shots/index.json)
+  // the emulator screenshot run couldn't get one: why (see public/app.js notes())
+  if (row.shotFailed) e.emuCheck = row.shotFailed
   const screen = row.shot ? `/shots/${row.id}.png?v=${row.shot}` : auto.screen
   if (screen) e.screen = screen
-  e.cover = data.image || auto.card || screen || auto.image || null
+  // the card's picture: the owner's, the maker's (their fmhub.json card, else a picture from their repo or site),
+  // and only then the emulator's screenshot
+  e.cover = data.image || auto.card || auto.image || screen || null
   if (e.cover && e.cover === screen) e.coverIsScreen = true
   e.tags = e.tags || []
   // the owner's main tag, else the first one collected (the hubs list their main category first)
@@ -244,6 +264,9 @@ export function effective(row) {
     if (prerelease && (!e.release || (prerelease.date || '') > (e.release.date || ''))) e.prerelease = prerelease
     else if (e.prerelease && e.release && (e.prerelease.date || '') <= (e.release.date || '')) delete e.prerelease
     e.versions = count
+    // a newer release than the one shown, which isn't installable (its file failed its check): say so
+    const { newest } = row.latest
+    if (newest && e.release && newest.version !== e.release.version && (newest.date || '') > (e.release.date || '') && !installable(newest) && (newest.assets || []).some((a) => /\.fwsc$/i.test(a.name))) e.newerUnchecked = newest
   }
   if (e.release && e.release.date > (e.updated || '')) e.updated = e.release.date
   // collected entries only get dates their sources gave; the row's own date is "added" only for entries made here

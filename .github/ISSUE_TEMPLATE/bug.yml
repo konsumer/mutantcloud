@@ -1,0 +1,17 @@
+name: Site bug
+description: Something on mutant.cloud doesn't work (a page, sign-in, editing, the JSON, the emulator popup…)
+title: 'Bug: '
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead. A link and a screenshot help a lot.
+    validations:
+      required: true
+  - type: input
+    id: where
+    attributes:
+      label: Browser and device
+      placeholder: e.g. Firefox on Windows, Safari on iPhone

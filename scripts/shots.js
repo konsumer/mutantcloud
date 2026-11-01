@@ -3,7 +3,7 @@
 // (joakimeriksson/fm1-emu, MIT). Boots each firmware's checked package headlessly, saves the
 // LCD a few seconds in, and writes public/shots/<id>.png (240x240, scaled up crisply by CSS).
 //
-//   npm run shots                    shoot firmwares that have no picture yet
+//   npm run shots                    shoot firmwares that have no picture at all yet (not even the maker's)
 //   npm run shots -- --update        also re-shoot ones whose package changed
 //   npm run shots -- --only a,b      just these ids (re-shoots them)
 //   npm run shots -- --ms 8000       how long to run each (emulated ms, default 8000)
@@ -159,13 +159,13 @@ async function fetchPackage(row) {
   return file
 }
 
-async function shoot(bin, row) {
+async function shoot(bin, row, ms = MS) {
   const fwsc = await fetchPackage(row)
   const dir = await mkdtemp(join(tmpdir(), 'fm1shot-'))
   try {
     await mkdir(join(dir, 'work'))
-    const times = [Math.round(MS * 0.35), Math.round(MS * 0.7), MS]
-    const { code, err } = await run(bin, ['--fwsc', fwsc, '--ms', String(MS), '--snap', times.join(','), '--quiet'], { cwd: dir, timeout: 10 * 60 * 1000 })
+    const times = [Math.round(ms * 0.35), Math.round(ms * 0.7), ms]
+    const { code, err } = await run(bin, ['--fwsc', fwsc, '--ms', String(ms), '--snap', times.join(','), '--quiet'], { cwd: dir, timeout: 10 * 60 * 1000 })
     // newest screen with something on it (the main screen, not the boot splash), else an earlier one
     const files = [...times.reverse().map((t) => `lcd_${t}.bmp`), 'lcd.bmp']
     for (const f of files) {
@@ -184,6 +184,9 @@ async function shoot(bin, row) {
 
 async function main() {
   const list = await (await fetch(`${SITE}/catalog.json`, { headers: UA })).json()
+  // a screenshot is only the fallback picture: listings with the maker's own picture don't need one
+  const all = await (await fetch(`${SITE}/firmware.json?device=all&kind=all`, { headers: UA })).json()
+  const hasPicture = new Set(all.entries.filter((e) => e.card || e.image).map((e) => e.id))
   // one package per firmware: the main FM-1 build if there is one (the emulator's home board)
   const rank = (r) => (/^FM-1_/.test(r.product) ? 2 : 0) + (r.id === r.entry || r.entry === 'stock' ? 1 : 0)
   const byEntry = new Map()
@@ -192,12 +195,21 @@ async function main() {
     if (!cur || rank(row) > rank(cur)) byEntry.set(row.entry, row)
   }
   const index = JSON.parse(await readFile(INDEX, 'utf8').catch(() => '{}'))
+  // only what's missing: never one that's already here, one the maker's picture covers, or one that failed
+  // before (unless --update, which also re-shoots firmware whose package changed)
+  let covered = 0
   const todo = [...byEntry.values()].filter((r) => {
     if (ONLY.length) return ONLY.includes(r.entry)
     const had = index[r.entry]
-    if (!had || !existsSync(join(OUT, `${r.entry}.png`))) return !had?.failed || UPDATE
-    return UPDATE && had.sha256 !== r.sha256
+    const have = had && !had.failed && existsSync(join(OUT, `${r.entry}.png`))
+    if (have) return UPDATE && had.sha256 !== r.sha256
+    if (hasPicture.has(r.entry)) {
+      covered++
+      return false
+    }
+    return !had?.failed || UPDATE
   })
+  if (covered) log(`(${covered} have the maker's own picture, so no screenshot is needed)`)
   log(`${byEntry.size} firmwares with packages, ${todo.length} to shoot (${JOBS} at a time, ${MS} ms each)`)
   if (!todo.length) return
 
@@ -213,7 +225,8 @@ async function main() {
         const row = todo.shift()
         const t0 = Date.now()
         try {
-          const img = await shoot(bin, row)
+          // a blank screen often just means a slow start: one longer try, in this run only
+          const img = await shoot(bin, row).catch((e) => (e.message === 'blank screen' ? shoot(bin, row, MS * 2.5) : Promise.reject(e)))
           await writeFile(join(OUT, `${row.entry}.png`), img)
           index[row.entry] = { sha256: row.sha256, product: row.product, version: row.version, v: createHash('sha1').update(img).digest('hex').slice(0, 8) }
           ok++

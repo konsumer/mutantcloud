@@ -1,5 +1,5 @@
-import { DEVICES, KINDS, TAGS, BASES, BASE_INFO, baseOfRepo, isAdmin, FILTERS, matches, slugify, repoKey, repoOwner, cleanInput, cleanUrl, effective, canManage } from './entry.js'
-import { inspect, deviceOf } from './pkg.js'
+import { DEVICES, KINDS, TAGS, BASES, BASE_INFO, baseOfRepo, isAdmin, FILTERS, matches, RESERVED, parseDeviceId, slugify, repoKey, repoOwner, cleanInput, cleanUrl, effective, canManage } from './entry.js'
+import { inspect, deviceOf, product, HEAD_BYTES } from './pkg.js'
 
 const SESSION_COOKIE = 'mc_session'
 const STATE_COOKIE = 'mc_oauth'
@@ -65,11 +65,17 @@ async function route(request, env, ctx, url) {
     return logout(request, env)
   }
 
+  // a listing's own link (mutant.cloud/<id>): the site, with that listing's name, description and picture in its
+  // preview tags. Anything else falls through to the static files (and the site itself).
+  const share = pathname.match(/^\/([a-z0-9-]+)\/?$/)
+  if (share && !RESERVED.has(share[1]) && (method === 'GET' || method === 'HEAD')) return listingPage(request, env, url, share[1])
+
   if (!pathname.startsWith('/api/')) return null
   // /api/publish is called from GitHub Actions (OIDC token, no cookies), everything else is same-site only
   if (method !== 'GET' && pathname !== '/api/publish') sameOrigin(request, url)
 
   if (pathname === '/api/me') return me(request, env)
+  if (pathname === '/api/ids' && method === 'GET') return deviceIdsResponse(env, url)
   if (pathname === '/api/publish' && method === 'POST') return publish(request, env)
   // admins: run the release watcher now (it also runs by itself every 10 minutes)
   if (pathname === '/api/admin/watch' && method === 'POST') {
@@ -116,13 +122,21 @@ const parseRel = (r) => r && { version: r.version, date: r.date || undefined, ur
 const LATEST = `SELECT entry, version, date, url, prerelease, assets, n FROM (
   SELECT r.*, ROW_NUMBER() OVER (PARTITION BY entry, prerelease ORDER BY (assets LIKE '%"sha256"%') DESC, date DESC, added DESC) AS rn, COUNT(*) OVER (PARTITION BY entry) AS n FROM releases r WHERE source <> 'removed'
 ) WHERE rn = 1`
+// the newest (non-pre) release by date, installable or not: if it isn't the one shown, the site says why
+const NEWEST = `SELECT entry, version, date, url, prerelease, assets FROM (
+  SELECT r.*, ROW_NUMBER() OVER (PARTITION BY entry ORDER BY date DESC, added DESC) AS rn FROM releases r WHERE source <> 'removed' AND prerelease = 0
+) WHERE rn = 1`
 
-function attachLatest(list, latest) {
+function attachLatest(list, latest, newest = []) {
   const by = new Map()
   for (const l of latest) {
     const x = by.get(l.entry) || { count: l.n }
     x[l.prerelease ? 'prerelease' : 'release'] = parseRel(l)
     by.set(l.entry, x)
+  }
+  for (const l of newest) {
+    const x = by.get(l.entry)
+    if (x) x.newest = parseRel(l)
   }
   for (const row of list) row.latest = by.get(row.id)
   return list
@@ -143,13 +157,17 @@ async function shots(env) {
 }
 const withShots = async (env, list) => {
   const index = await shots(env)
-  for (const row of list) row.shot = index[row.id]?.v
+  for (const row of list) {
+    row.shot = index[row.id]?.v
+    // a screenshot that failed: why, and which listed file it was (its notes on the site depend on it)
+    if (index[row.id]?.failed) row.shotFailed = { reason: index[row.id].failed, sha256: index[row.id].sha256 }
+  }
   return list
 }
 
 async function rows(env) {
-  const [entries, latest] = await env.DB.batch([env.DB.prepare('SELECT id, repo, auto, data, hidden, locked, created_by, created, updated, synced FROM entries'), env.DB.prepare(LATEST)])
-  return withShots(env, attachLatest(entries.results, latest.results))
+  const [entries, latest, newest] = await env.DB.batch([env.DB.prepare('SELECT id, repo, auto, data, hidden, locked, created_by, created, updated, synced FROM entries'), env.DB.prepare(LATEST), env.DB.prepare(NEWEST)])
+  return withShots(env, attachLatest(entries.results, latest.results, newest.results))
 }
 
 // both lists are built from the same rows and cached together; ETags let devices (fm1buddy) skip unchanged lists
@@ -340,8 +358,8 @@ function catalog(all, synced) {
 async function loadRow(env, id) {
   const row = await env.DB.prepare('SELECT * FROM entries WHERE id = ?').bind(id).first()
   if (!row) throw new HttpError(404, 'no such entry')
-  const { results } = await env.DB.prepare(`SELECT * FROM (${LATEST}) WHERE entry = ?`).bind(id).all()
-  return (await withShots(env, attachLatest([row], results)))[0]
+  const [latest, newest] = await env.DB.batch([env.DB.prepare(`SELECT * FROM (${LATEST}) WHERE entry = ?`).bind(id), env.DB.prepare(`SELECT * FROM (${NEWEST}) WHERE entry = ?`).bind(id)])
+  return (await withShots(env, attachLatest([row], latest.results, newest.results)))[0]
 }
 
 async function versions(env, id) {
@@ -493,20 +511,37 @@ const relOf = (r) =>
       .map((a) => ({ name: a.name, url: a.browser_download_url, size: a.size, _digest: a.digest || undefined }))
   }
 
-// check the .fwsc files of the given releases (sha256, size, product); results go on matching assets in `also` too
+// check the .fwsc files of the given releases (sha256, size, product); results go on matching assets in `also` too.
+// A file that isn't a package is marked `invalid`, one that couldn't be downloaded `unchecked` (both with the
+// date): the site shows a "might not install" note, and the watcher's re-check tries them again.
 async function checkAssets(rels, also = []) {
+  const today = new Date().toISOString().slice(0, 10)
   const found = new Map()
   const todo = rels
     .filter(Boolean)
     .flatMap((r) => r.assets || [])
     .filter((a) => /\.fwsc$/i.test(a.name) && !a.sha256)
     .slice(0, 12)
-  await Promise.all(todo.map(async (a) => found.set(a.url, await inspect(a.url, { digest: a._digest, size: a.size, headers: { 'user-agent': 'mutant.cloud' } }).catch(() => null))))
+  await Promise.all(
+    todo.map(async (a) => {
+      try {
+        const c = await inspect(a.url, { digest: a._digest, size: a.size, headers: { 'user-agent': 'mutant.cloud' } })
+        found.set(a.url, c ? { ...c, checked: today } : { invalid: today, checked: today })
+      } catch {
+        found.set(a.url, { unchecked: today })
+      }
+    })
+  )
   for (const r of [...rels, ...also].filter(Boolean)) {
     for (const a of r.assets || []) {
       delete a._digest
       const c = found.get(a.url)
-      if (c) Object.assign(a, c)
+      if (!c) continue
+      if (c.sha256) {
+        delete a.invalid
+        delete a.unchecked
+      }
+      Object.assign(a, c)
     }
   }
 }
@@ -564,7 +599,7 @@ async function repoTaken(env, repo, exceptId) {
 }
 
 async function freeId(env, name) {
-  const base = slugify(name)
+  const base = RESERVED.has(slugify(name)) ? `${slugify(name)}-fw` : slugify(name)
   for (let n = 1; n < 100; n++) {
     const id = n === 1 ? base : `${base}-${n}`
     if (!(await env.DB.prepare('SELECT 1 FROM entries WHERE id = ?').bind(id).first())) return id
@@ -897,7 +932,7 @@ async function readRelease(repo, { tag, date }) {
   }
 }
 
-async function watch(env) {
+async function watchReleases(env) {
   const { results } = await env.DB.prepare('SELECT id, repo, auto, watch_etag FROM entries WHERE repo IS NOT NULL AND hidden = 0 AND locked = 0 ORDER BY watched IS NOT NULL, watched LIMIT ?').bind(WATCH_BATCH).all()
   if (!results.length) return { checked: 0, added: [] }
   // every version each one has (removed ones too, so they stay removed)
@@ -972,4 +1007,269 @@ async function watch(env) {
   if (updates.length) await env.DB.batch(updates)
   if (added.length) console.log('new releases:', added.join(', '))
   return { checked, added }
+}
+
+// both jobs of a watcher run: new releases, and downloads that changed under the same version
+async function watch(env) {
+  const releases = await watchReleases(env)
+  const files = await verifyFiles(env)
+  return { ...releases, ...files }
+}
+
+// --- download re-checks ----------------------------------------------------
+// GitHub release files and commit-pinned repo files don't change. Files on makers' own sites (and M-VAVE's)
+// can be replaced in place, which breaks installers that verify the listed sha256 (fm1buddy). So the current
+// release's other files are re-checked, oldest first: a conditional request costs nothing while a file is
+// unchanged; a changed file is re-checked and its sha256 updated, with a dated note so people can see why.
+
+const VERIFY_BATCH = 15 // listings per run
+const VERIFY_BUDGET = 40 // outside requests per run (a full re-check counts 2)
+const githubRelease = (u) => /^https:\/\/github\.com\/[^/]+\/[^/]+\/releases\/download\//.test(u)
+// files in a repo at a fixed commit can't change
+const pinnedFile = (u) => /^https:\/\/raw\.githubusercontent\.com\/[^/]+\/[^/]+\/[0-9a-f]{40}\//.test(u)
+const daysSince = (d) => (Date.now() - Date.parse(d)) / 864e5
+const hexOf = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('')
+
+// re-check one listed file (mutates it); returns 'same', 'updated' (worth saving) or 'error' (try again later)
+async function checkFile(a) {
+  const today = new Date().toISOString().slice(0, 10)
+  const headers = { ...WATCH_UA, ...(a.etag ? { 'if-none-match': a.etag } : a.lastModified ? { 'if-modified-since': a.lastModified } : {}) }
+  let r
+  try {
+    r = await fetch(a.url, { headers, redirect: 'follow' })
+  } catch {
+    return 'error'
+  }
+  if (r.status === 304) return 'same'
+  if (r.status === 404 || r.status === 410) {
+    if (a.missing) return 'same'
+    a.missing = today
+    return 'updated'
+  }
+  if (!r.ok) return 'error'
+  const buf = await r.arrayBuffer()
+  if (buf.byteLength > 16 * 1024 * 1024) return 'error'
+  let result = a.missing ? 'updated' : 'same'
+  delete a.missing
+  const sha = hexOf(await crypto.subtle.digest('SHA-256', buf))
+  if (sha !== a.sha256) {
+    const p = product(new Uint8Array(buf, 0, Math.min(buf.byteLength, HEAD_BYTES)))
+    if (!p) {
+      if (!a.invalid) a.invalid = today
+    } else {
+      // replaced in place: list what's there now, so installers that verify it work again
+      Object.assign(a, { sha256: sha, size: buf.byteLength, product: p, replaced: today })
+      delete a.invalid
+    }
+    result = 'updated'
+  } else if (a.invalid) {
+    delete a.invalid
+    result = 'updated'
+  }
+  const etag = r.headers.get('etag') || undefined
+  const lastModified = r.headers.get('last-modified') || undefined
+  if (etag !== a.etag || lastModified !== a.lastModified) {
+    Object.assign(a, { etag, lastModified })
+    result = 'updated'
+  }
+  return result
+}
+
+// a GitHub release file: its download link redirects to the stored file, and a re-upload under the same name gets
+// a new one. So one request (no download) tells whether it changed; the first time, the file is checked in full.
+async function checkGithubFile(a) {
+  const today = new Date().toISOString().slice(0, 10)
+  let r
+  try {
+    r = await fetch(a.url, { headers: WATCH_UA, redirect: 'manual' })
+  } catch {
+    return 'error'
+  }
+  if (r.status === 404 || r.status === 410) {
+    if (a.missing) return 'same'
+    a.missing = today
+    return 'updated'
+  }
+  const store = (r.headers.get('location') || '').split('?')[0]
+  if (!store) return 'error'
+  if (store === a.store && !a.missing) return 'same'
+  let c
+  try {
+    c = await inspect(a.url, { headers: WATCH_UA })
+  } catch {
+    return 'error'
+  }
+  const was = a.store
+  Object.assign(a, { store, checked: today })
+  delete a.missing
+  if (!c) {
+    a.invalid ||= today
+    return 'updated'
+  }
+  delete a.invalid
+  if (c.sha256 !== a.sha256) {
+    Object.assign(a, c)
+    // (on the first look there's no earlier copy to compare, but a different sha256 still means it changed)
+    a.replaced = today
+    if (!was) console.log('first check found a changed file:', a.url)
+  }
+  return 'updated'
+}
+
+// a .fwsc whose check failed: try again (one that wasn't a package, at most weekly)
+async function retryFile(a) {
+  if (a.invalid && a.checked && daysSince(a.checked) < 7) return 'skip'
+  const before = JSON.stringify(a)
+  await checkAssets([{ assets: [a] }])
+  return JSON.stringify(a) === before ? 'same' : 'updated'
+}
+
+async function verifyFiles(env) {
+  const { results } = await env.DB.prepare('SELECT id, auto FROM entries WHERE hidden = 0 AND locked = 0 ORDER BY verified IS NOT NULL, verified LIMIT ?').bind(VERIFY_BATCH).all()
+  if (!results.length) return { verified: 0, files: [] }
+  const ids = results.map((r) => r.id)
+  // the release (and pre-release) each one currently shows: the same pick the site makes
+  const inIds = `WHERE entry IN (${ids.map(() => '?').join(',')})`
+  const [a, b] = await env.DB.batch([env.DB.prepare(`SELECT * FROM (${LATEST}) ${inIds}`).bind(...ids), env.DB.prepare(`SELECT * FROM (${NEWEST}) ${inIds}`).bind(...ids)])
+  // what each one shows, plus its newest release when that's a different (unchecked or broken) one
+  const shown = [...a.results]
+  for (const n of b.results) if (!shown.some((x) => x.entry === n.entry && x.version === n.version)) shown.push(n)
+  let budget = VERIFY_BUDGET
+  const now = new Date().toISOString()
+  const stmts = []
+  const files = []
+  let verified = 0
+  for (const row of results) {
+    let finished = true
+    const auto = JSON.parse(row.auto || '{}')
+    let autoDirty = false
+    for (const rel of shown.filter((l) => l.entry === row.id)) {
+      const assets = JSON.parse(rel.assets || '[]')
+      let dirty = false
+      for (const a of assets) {
+        if (!a.url || !/\.fwsc$/i.test(a.name)) continue
+        const how = !a.sha256 ? retryFile : githubRelease(a.url) ? checkGithubFile : pinnedFile(a.url) ? null : checkFile
+        if (!how) continue
+        if (budget < 2) {
+          finished = false
+          break
+        }
+        const before = JSON.stringify(a)
+        const res = await how(a)
+        if (res === 'skip') continue
+        budget -= res === 'same' ? 1 : 2
+        if (res === 'error') finished = false
+        if (res === 'updated') {
+          dirty = true
+          const was = JSON.parse(before)
+          if (a.replaced && a.replaced !== was.replaced) files.push(`${row.id}: ${a.name} replaced`)
+          if (a.missing && !was.missing) files.push(`${row.id}: ${a.name} gone`)
+          if (a.invalid && !was.invalid) files.push(`${row.id}: ${a.name} not a package`)
+          if (a.sha256 && !was.sha256) files.push(`${row.id}: ${a.name} checked now`)
+        }
+      }
+      if (dirty) {
+        stmts.push(env.DB.prepare('UPDATE releases SET assets = ? WHERE entry = ? AND version = ?').bind(JSON.stringify(assets), row.id, rel.version))
+        // the collected copy of the same release too
+        for (const k of ['release', 'prerelease']) {
+          if (auto[k]?.version === rel.version) {
+            auto[k].assets = (auto[k].assets || []).map((x) => assets.find((y) => y.url === x.url) || x)
+            autoDirty = true
+          }
+        }
+      }
+      if (!finished) break
+    }
+    if (autoDirty) stmts.push(env.DB.prepare('UPDATE entries SET auto = ? WHERE id = ?').bind(JSON.stringify(auto), row.id))
+    if (finished) {
+      verified++
+      stmts.push(env.DB.prepare('UPDATE entries SET verified = ? WHERE id = ?').bind(now, row.id))
+    }
+    if (budget < 1) break
+  }
+  if (stmts.length) await env.DB.batch(stmts)
+  if (files.length) console.log('downloads:', files.join(', '))
+  return { verified, files }
+}
+
+// --- a listing's own link ---------------------------------------------------
+// /<id> is the normal page (the site opens that listing), but link previews (Reddit, Discord, Mastodon, X...)
+// show the listing: its name, maker, description and picture, so makers can share "their" page.
+
+async function listingPage(request, env, url, id) {
+  const page = await env.ASSETS.fetch(new Request(`${url.origin}/`))
+  const row = await env.DB.prepare('SELECT * FROM entries WHERE id = ?').bind(id).first()
+  if (!row || row.hidden) return page // (the site says it's not found)
+  const e = effective((await withShots(env, attachLatest([row], [])))[0])
+  const abs = (u) => (u && u.startsWith('/') ? url.origin + u : u)
+  const image = abs(e.cover) || `${url.origin}/og.png`
+  const square = e.coverIsScreen || !e.cover // a 240x240 screen (or none): the small card fits it better
+  const title = `${e.name} by ${e.author}`
+  const devices = e.devices.map((d) => DEVICES[d] || d).join(' & ')
+  const desc = (e.description || `${e.kind === 'tool' ? 'A tool' : 'Firmware'} for the ${devices}.`).slice(0, 280)
+  const link = `${url.origin}/${e.id}`
+  const meta = {
+    description: desc,
+    'og:title': title,
+    'og:description': desc,
+    'og:url': link,
+    'og:image': image,
+    'og:image:alt': e.coverIsScreen ? `${e.name}'s screen` : e.name,
+    'twitter:card': square && !e.cover ? 'summary_large_image' : square ? 'summary' : 'summary_large_image',
+    'twitter:title': title,
+    'twitter:description': desc,
+    'twitter:image': image
+  }
+  const set = {
+    element: (el) => {
+      const k = el.getAttribute('property') || el.getAttribute('name')
+      // the poster's size doesn't apply to the listing's own picture
+      if ((k === 'og:image:width' || k === 'og:image:height') && e.cover) return el.remove()
+      if (k in meta) el.setAttribute('content', meta[k])
+    }
+  }
+  return new HTMLRewriter()
+    .on('meta', set)
+    .on('title', { element: (el) => el.setInnerContent(`${title} · mutant.cloud`) })
+    .on('head', { element: (el) => el.append(`<link rel="canonical" href="${link}" />`, { html: true }) })
+    .transform(new Response(page.body, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'public, max-age=300' } }))
+}
+
+// --- device IDs ("FM-1_745") ------------------------------------------------
+// The ID inside a package is what the device reports, and how installers and apps tell which firmware is running.
+// GET /api/ids              every ID in use (by any version of any listing, old ones too) and who uses it
+// GET /api/ids?check=ID     is this one free? (with a few free ones to pick from)
+
+async function idsInUse(env) {
+  const { results } = await env.DB.prepare("SELECT r.entry, r.version, r.assets, e.auto, e.data FROM releases r JOIN entries e ON e.id = r.entry WHERE r.source <> 'removed' AND e.hidden = 0 AND r.assets LIKE '%\"product\"%'").all()
+  const ids = {}
+  for (const r of results) {
+    const name = { ...JSON.parse(r.auto || '{}'), ...JSON.parse(r.data || '{}') }.name || r.entry
+    for (const a of JSON.parse(r.assets || '[]')) {
+      if (!a.product) continue
+      const list = (ids[a.product] ||= [])
+      const have = list.find((x) => x.id === r.entry)
+      if (have) have.versions.push(r.version)
+      else list.push({ id: r.entry, name, versions: [r.version] })
+    }
+  }
+  return ids
+}
+
+async function deviceIdsResponse(env, url) {
+  const ids = await idsInUse(env)
+  const check = url.searchParams.get('check')
+  if (check === null) return json({ count: Object.keys(ids).length, ids }, 200, { 'cache-control': 'public, max-age=300' })
+  const id = parseDeviceId(check)
+  if (!id) return json({ check, valid: false, error: 'a device ID looks like FM-1_745 (or SMK-37 Pro_745, SMK-37 Elite_745, MKE-P37_745)' }, 400)
+  const by = ids[id] || []
+  // free numbers near the one asked for, for the same model
+  const [model, n] = [id.slice(0, id.lastIndexOf('_')), Number(id.slice(id.lastIndexOf('_') + 1))]
+  const suggestions = []
+  for (let d = 1; suggestions.length < 5 && d < 5000; d++) {
+    for (const k of [n + d, n - d]) {
+      if (k > 0 && !ids[`${model}_${k}`] && suggestions.length < 5) suggestions.push(`${model}_${k}`)
+    }
+  }
+  return json({ id, valid: true, taken: by.length > 0, by, suggestions: by.length ? suggestions : [] })
 }

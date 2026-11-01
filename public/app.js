@@ -25,8 +25,11 @@ const query = (st) => {
   const p = new URLSearchParams()
   for (const k of Object.keys(DEFAULTS)) if (st[k] && st[k] !== DEFAULTS[k]) p.set(k, st[k])
   const qs = p.toString()
-  return qs ? '?' + qs : '/'
+  return qs ? '/?' + qs : '/'
 }
+// a listing's own page: mutant.cloud/<id> (the worker puts its picture in the link previews)
+const pageUrl = (e) => `${location.origin}/${e.id}`
+const listingPath = () => location.pathname.match(/^\/([a-z0-9-]+)\/?$/)?.[1]
 // a link to the list with these filters (the others stay as they are, so they combine)
 const filterUrl = (patch) => query({ ...state, ...patch })
 
@@ -76,7 +79,63 @@ const when = (d) => {
 }
 // the picture the owner set, if any (what the form shows): not the screenshot or maker card
 const ownPic = (e) => (e.cover && !e.coverIsScreen && e.cover !== e.card ? e.cover : '')
+// a GitHub issue about a listing, with the form's fields filled in (.github/ISSUE_TEMPLATE/listing.yml)
+const ISSUES = 'https://github.com/konsumer/mutantcloud/issues/new'
+const reportUrl = (e) => `${ISSUES}?template=listing.yml&title=${encodeURIComponent(`Listing: ${e.name}`)}&listing=${encodeURIComponent(`https://mutant.cloud/${e.id}`)}`
+
+// device IDs ("FM-1_745"): what a listing's current files report (same as src/entry.js deviceIds)
+const deviceIds = (e) => [...new Set([...(e.release?.assets || []), ...(e.prerelease?.assets || [])].map((a) => a.product).filter(Boolean))]
+// other listings whose current files report the same device ID
+// (built once per load of the list: device ID -> the listings that report it)
+let ID_INDEX = { data: null, map: new Map() }
+function sharedIds(e) {
+  if (ID_INDEX.data !== DATA) {
+    const map = new Map()
+    for (const x of DATA.entries) for (const id of deviceIds(x)) map.set(id, [...(map.get(id) || []), x])
+    ID_INDEX = { data: DATA, map }
+  }
+  const out = []
+  for (const id of deviceIds(e)) {
+    const others = (ID_INDEX.map.get(id) || []).filter((x) => x.id !== e.id)
+    if (others.length) out.push({ id, others })
+  }
+  return out
+}
+
 const isNew = (e) => e.added && daysAgo(e.added) <= 14
+
+// heads-ups about a listing's downloads and screenshot, as muted notes. warn: installing may not work right now
+// (installers that verify the sha256, like fm1buddy, refuse it). info: worth knowing, nothing's broken.
+function notes(e) {
+  const out = []
+  const assets = [...(e.release?.assets || []), ...(e.prerelease?.assets || [])]
+  for (const a of assets) {
+    if (a.unchecked && !a.sha256) out.push({ warn: true, text: `${a.name} couldn't be downloaded to check it (on ${fmtDate(a.unchecked)}). It's retried automatically; until then, installers that need a checked file (like fm1buddy) won't offer it.` })
+    else if (a.missing) out.push({ warn: true, text: `${a.name} can't be downloaded (since ${fmtDate(a.missing)}). Installers will fail until the maker fixes the link.` })
+    else if (a.invalid) out.push({ warn: true, text: `${a.name} isn't a valid FM-1 package any more (since ${fmtDate(a.invalid)}), so installers will refuse it.` })
+    else if (a.replaced && daysAgo(a.replaced) <= 60) out.push({ text: `${a.name} was replaced on ${fmtDate(a.replaced)} without a new version number. It's been re-checked, so installers work; if you installed it before then, you have the older build.` })
+  }
+  const n = e.newerUnchecked
+  if (n) {
+    const why = (n.assets || []).some((a) => a.invalid) ? "its file isn't a valid FM-1 package" : (n.assets || []).some((a) => a.unchecked) ? "its file couldn't be downloaded to check it (it's retried automatically)" : 'its file is waiting to be checked'
+    out.push({ warn: true, text: `There's a newer version, ${n.version} (${fmtDate(n.date)}), but ${why}. The version shown here is the latest one that checks out.` })
+  }
+  for (const { id, others } of sharedIds(e)) {
+    const names =
+      others
+        .slice(0, 3)
+        .map((x) => x.name)
+        .join(', ') + (others.length > 3 ? ` and ${others.length - 3} more` : '')
+    out.push({ text: `Its device ID, ${id}, is also used by ${names}. Devices and apps that tell which firmware is running by its ID (like fm1buddy) can't tell these apart.` })
+  }
+  const c = e.emuCheck
+  if (c?.reason?.startsWith('sha256') && assets.some((a) => a.sha256 && a.sha256 === c.sha256)) {
+    out.push({ warn: true, text: `The download doesn't match the file that was checked when it was listed (it was probably replaced in place). Installers that verify downloads, like fm1buddy, will refuse it until it's re-checked, which happens automatically within a few hours.` })
+  } else if (c && !c.reason.startsWith('sha256') && !e.coverIsScreen) {
+    out.push({ text: /blank/.test(c.reason) ? `No emulator screenshot: it showed a blank screen. That's often just a slow start, and it doesn't mean it won't run on a device.` : `No emulator screenshot (${c.reason}).` })
+  }
+  return out
+}
 const fmtSize = (n) => (n ? (n > 1e6 ? (n / 1e6).toFixed(1) + ' MB' : Math.round(n / 1e3) + ' KB') : '')
 const ghUrl = (e) => (e.repo ? `https://github.com/${e.repo}` : null)
 // locked entries: admins only (the server enforces the same)
@@ -154,7 +213,7 @@ async function loadEmulator() {
   if (DATA.entries.length) {
     render()
     // an open "Try" link or detail sheet that arrived before the emulator's list: show it again, now with Try
-    if (/^#\/(p|try)\//.test(location.hash)) route()
+    if (/^#\/(p|try)\//.test(location.hash) || listingPath()) route()
   }
 }
 
@@ -203,7 +262,7 @@ function filtered() {
     if (state.author && authorKey(e) !== state.author) return false
     if (state.base && e.base !== state.base) return false
     if (!words.length) return true
-    const hay = [e.name, e.author, e.description, e.repo, e.base, e.base && baseName(e.base), ...e.tags].join(' ').toLowerCase()
+    const hay = [e.name, e.author, e.description, e.repo, e.base, e.base && baseName(e.base), ...e.tags, ...deviceIds(e)].join(' ').toLowerCase()
     return words.every((w) => hay.includes(w))
   })
   const by = {
@@ -228,6 +287,7 @@ function card(e) {
     <p class="by">by ${authorLink(e)}</p>
     ${e.description ? `<p class="desc">${esc(e.description)}</p>` : ''}
     <div class="meta">${e.primaryTag ? `<a class="badge tag flink" data-f href="${esc(filterUrl({ tag: e.primaryTag }))}" style="--h:${hue(e.primaryTag)}" title="All ${esc(e.primaryTag)}">${esc(e.primaryTag)}</a>` : ''}${dev}${e.beta ? '<span class="badge warn">beta</span>' : ''}${e.archived ? '<span class="badge warn">archived</span>' : ''}${ver}</div>
+    ${notes(e).some((n) => n.warn) ? `<p class="warnline">⚠ Might not install right now: see details</p>` : ''}
     <p class="dates">${e.added ? `<span title="${esc(fmtDate(e.added))}">Added ${when(e.added)}</span>` : ''}${released ? `<span title="${esc(fmtDate(e.release?.date || e.updated))}">${released}</span>` : ''}</p>
     <div class="actions">${cardButtons(e).join('')}</div>
   </article>`
@@ -237,7 +297,8 @@ function render() {
   const list = filtered()
   $('#grid').innerHTML = list.length ? list.map(card).join('') : '<p class="empty">Nothing matches. Know one that is missing? <a href="#/new">Add it</a>.</p>'
   summary(list)
-  history.replaceState(history.state, '', query(state) + location.hash)
+  // (on a listing's own page the address stays as it is, so it can be shared)
+  if (!listingPath()) history.replaceState(history.state, '', query(state) + location.hash)
 }
 
 // "12 drums FM1 firmwares by konsumer, built on FOMA": what this link shows, with ways to undo each part
@@ -352,7 +413,7 @@ dlg.addEventListener('close', () => {
   // (removing the sheet also stops a running emulator)
   $('#dlg-body').replaceChildren()
   dlg.classList.remove('wide')
-  if (location.hash.startsWith('#/')) history.pushState(null, '', location.pathname + location.search)
+  if (location.hash.startsWith('#/') || listingPath()) history.pushState(null, '', (listingPath() ? '/' : location.pathname) + location.search)
 })
 dlg.addEventListener('click', (ev) => {
   if (ev.target === dlg) dlg.close()
@@ -377,10 +438,17 @@ function detail(e) {
     <p class="by">by ${authorLink(e)}${e.authorUrl ? ` · <a href="${safe(e.authorUrl)}" target="_blank" rel="noopener">${e.github ? 'GitHub' : 'website'} ↗</a>` : ''}</p>
     ${e.cover ? `<div class="shots"><img class="shot${e.coverIsScreen ? ' screen' : ''}" src="${safe(e.cover)}" alt="" loading="lazy" onerror="this.remove()" />${e.screen && !e.coverIsScreen ? `<img class="shot screen" src="${safe(e.screen)}" alt="Its screen, in the emulator" loading="lazy" onerror="this.remove()" />` : ''}</div>` : ''}
     ${e.description ? `<p class="lead">${esc(e.description)}</p>` : ''}
-    <div class="actions">${emuFor(e) ? `<a class="btn primary" href="#/try/${esc(e.id)}">▶ Try it in your browser</a>` : ''}${links.map((l, i) => ext(l.url, l.label, i === 0 && !emuFor(e) ? 'btn primary' : 'btn')).join('')}</div>
+    <div class="actions">${emuFor(e) ? `<a class="btn primary" href="#/try/${esc(e.id)}">▶ Try it in your browser</a>` : ''}${links.map((l, i) => ext(l.url, l.label, i === 0 && !emuFor(e) ? 'btn primary' : 'btn')).join('')}<button type="button" class="btn ghost" data-copy="${esc(pageUrl(e))}" title="Its own page: shows its picture when you share it">Copy link</button></div>
     ${f.length ? `<h3>Files${e.release?.version ? ` <span class="mono by">${esc(e.release.version)}</span>` : ''}</h3>${fileList(f)}` : ''}
     <div id="history"></div>
     <dl class="facts">
+      ${
+        deviceIds(e).length
+          ? `<dt>Device ID</dt><dd>${deviceIds(e)
+              .map((id) => `<a class="mono" data-f href="${esc(query({ ...DEFAULTS, kind: 'all', device: 'all', q: id }))}" title="Everything that reports ${esc(id)}">${esc(id)}</a>`)
+              .join(', ')}</dd>`
+          : ''
+      }
       <dt>Runs on</dt><dd>${e.devices.map((d) => `<a data-f href="${esc(query({ ...DEFAULTS, kind: e.kind, device: d }))}">${esc(DATA.devices[d] || d)}</a>`).join(', ')}</dd>
       ${e.tags.length ? `<dt>Tags</dt><dd>${e.tags.map((t) => `<a data-f href="${esc(query({ ...DEFAULTS, kind: e.kind, tag: t }))}">${t === e.primaryTag ? `<b>${esc(t)}</b>` : esc(t)}</a>`).join(', ')}</dd>` : ''}
       ${e.base ? `<dt>Built on</dt><dd><a data-f href="${esc(query({ ...DEFAULTS, base: e.base }))}" title="Everything built on ${esc(baseName(e.base))}">${esc(baseName(e.base))}</a>${DATA.bases[e.base]?.repo ? ` · <a href="https://github.com/${esc(DATA.bases[e.base].repo)}" target="_blank" rel="noopener">repo ↗</a>` : ''}</dd>` : ''}
@@ -391,22 +459,27 @@ function detail(e) {
       ${e.added ? `<dt>Added</dt><dd>${fmtDate(e.added)} <span class="by">(${when(e.added)})</span></dd>` : ''}
       ${rel(e.release, 'Latest release')}
       ${rel(e.prerelease, 'Pre-release')}
-      ${e.versions > 1 ? `<dt>Versions</dt><dd>${e.versions} kept, all installable below</dd>` : ''}
+      ${e.versions > 1 ? `<dt>Versions</dt><dd>${e.versions} in its history, linked below (while the maker still hosts them)</dd>` : ''}
       ${e.license ? `<dt>License</dt><dd>${esc(e.license)}</dd>` : ''}
       ${e.updated ? `<dt>Last activity</dt><dd>${fmtDate(e.updated)} <span class="by">(${when(e.updated)})</span></dd>` : ''}
       ${!e.repo && e.listedBy ? `<dt>Listed by</dt><dd><a href="https://github.com/${esc(e.listedBy)}" target="_blank" rel="noopener">@${esc(e.listedBy)}</a></dd>` : ''}
       ${e.managers.length ? `<dt>Managed by</dt><dd>${e.managers.map((m) => `<a href="https://github.com/${esc(m)}" target="_blank" rel="noopener">${esc(m)}</a>`).join(', ')}</dd>` : ''}
       ${e.sources?.length ? `<dt>Also on</dt><dd>${e.sources.map((s) => esc(sources[s] || s)).join(', ')}</dd>` : ''}
       <dt>JSON</dt><dd><a href="/api/entries/${esc(e.id)}" class="mono">/api/entries/${esc(e.id)}</a></dd>
+      <dt>Something wrong?</dt><dd><a href="${safe(reportUrl(e))}" target="_blank" rel="noopener">Report a problem with this listing ↗</a></dd>
     </dl>
     ${e.beta ? '<p class="note">Marked beta / experimental by its maker.</p>' : ''}
+    ${notes(e)
+      .map((n) => `<p class="note muted">${n.warn ? '⚠ ' : ''}${esc(n.text)}</p>`)
+      .join('')}
     ${note}`,
     hue(e.id)
   )
   if (e.versions > 1) loadHistory(e)
+  wireCopy()
 }
 
-const fileList = (f) => `<ul class="files">${f.map((a) => `<li><a href="${safe(a.url)}">${esc(a.name)}</a><span class="mono">${fmtSize(a.size)}</span></li>`).join('')}</ul>`
+const fileList = (f) => `<ul class="files">${f.map((a) => `<li><a href="${safe(a.url)}">${esc(a.name)}</a><span class="mono">${a.product ? `${esc(a.product)} · ` : ''}${fmtSize(a.size)}</span></li>`).join('')}</ul>`
 
 async function loadHistory(e) {
   const list = await api(`/api/entries/${e.id}/releases`).catch(() => [])
@@ -484,22 +557,39 @@ function makeSheet() {
     <h3><span class="num">2</span> Try it without flashing</h3>
     <p>The <a href="https://joakimeriksson.github.io/fm1-emu/" target="_blank" rel="noopener">FM-1 emulator</a> runs a <code>.fwsc</code> in your browser (FM1 and SMK-37), so you can check it boots before you put it on a device.</p>
 
-    <h3><span class="num">3</span> Publish a release</h3>
-    <p>Make a <a href="https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository" target="_blank" rel="noopener">GitHub release</a> and attach your <code>.fwsc</code> file(s): one per device if you build for several (FM1, SMK-37 Pro / Elite, MKE-P37). The hub reads each file's header to see which device it's for, checks its sha256, and keeps every version so people can always go back.</p>
+    <h3><span class="num">3</span> Pick a device ID nobody else uses</h3>
+    <p>Your package's device ID (like <code>FM-1_745</code>) is what the device reports, and how installers and apps tell which firmware is running. If two firmwares share one, they can't be told apart. Check yours against every version of every listing here:</p>
+    <form class="idcheck" id="idcheck"><input name="id" placeholder="FM-1_745" maxlength="40" autocomplete="off" /><button class="btn small primary" type="submit">Check</button></form>
+    <p class="idresult" id="idresult" role="status"></p>
+
+    <h3><span class="num">4</span> Publish a release</h3>
+    <p>Make a <a href="https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository" target="_blank" rel="noopener">GitHub release</a> and attach your <code>.fwsc</code> file(s): one per device if you build for several (FM1, SMK-37 Pro / Elite, MKE-P37). The hub reads each file's header to see which device it's for, checks its sha256, and remembers every version (it links to your files, it doesn't copy them).</p>
     <p class="by">Optional: an <code>fmhub.json</code> in your repo with <code>"image": "docs/card.png"</code> sets the picture on your card (the same file The Firmware Hub reads). Without one, the card shows your firmware's screen from the emulator.</p>
 
-    <h3><span class="num">4</span> List it</h3>
+    <h3><span class="num">5</span> List it</h3>
     <p>Sign in with GitHub and add it. You can list a repo you own or can push to, and everyone who can push to it can manage the listing. Not on GitHub? You can add it anyway, with its real author's name on it; the listing also shows which account added it.</p>
+    <p>Your listing has its own page, <code>mutant.cloud/&lt;its-id&gt;</code> (<b>Copy link</b> on it). Share that one: link previews on Reddit, Discord, Mastodon and the rest show your firmware's name, your name and its picture.</p>
     <p class="by">Only list firmware you made, or that its maker asked you to list. A listing's repo can't be changed after it's added (GitHub renames and transfers are followed automatically), and the admins can lock or remove listings that misrepresent someone's work.</p>
     <p>${add}</p>
 
-    <h3><span class="num">5</span> Keep it updated automatically</h3>
-    <p>Add this as <code>.github/workflows/mutant.yml</code> in your repo. Every release you publish shows up here right away, with its version history. It also lists your firmware on its first run, if you skipped step 4. No secrets or tokens to set up: GitHub proves the run comes from your repo.</p>
+    <h3><span class="num">6</span> Keep it updated automatically</h3>
+    <p>Add this as <code>.github/workflows/mutant.yml</code> in your repo. Every release you publish shows up here right away, with its version history. It also lists your firmware on its first run, if you skipped step 5. No secrets or tokens to set up: GitHub proves the run comes from your repo.</p>
     ${codeBlock(WORKFLOW)}
     <p class="by">First run only, if it isn't listed yet: add <code>with:</code> <code>name: My Synth</code> and <code>devices: fm1,smk37</code> under the <code>uses:</code> line.</p>`,
     280
   )
   wireCopy()
+  $('#idcheck').onsubmit = async (ev) => {
+    ev.preventDefault()
+    const out = $('#idresult')
+    const r = await fetch(`/api/ids?check=${encodeURIComponent(ev.target.id.value)}`)
+      .then((x) => x.json())
+      .catch(() => null)
+    if (!r) return (out.textContent = "Couldn't check right now, try again.")
+    if (!r.valid) return (out.textContent = r.error)
+    if (!r.taken) return (out.innerHTML = `✓ <b class="mono">${esc(r.id)}</b> isn't used by any listing here.`)
+    out.innerHTML = `✗ <b class="mono">${esc(r.id)}</b> is taken by ${r.by.map((b) => `<a href="#/p/${esc(b.id)}">${esc(b.name)}</a>`).join(', ')}. Free nearby: ${r.suggestions.map((x) => `<code>${esc(x)}</code>`).join(', ')}`
+  }
 }
 
 // the emulator in a popup: FM1 or SMK-37 if it has both
@@ -529,7 +619,7 @@ async function versionsSheet(e) {
   const list = await api(`/api/entries/${e.id}/releases`).catch(() => [])
   open(
     `<h2 id="dlg-title">${esc(e.name)} versions</h2>
-    <p class="by">Every version is kept, so people can always go back to an older one.${e.repo ? ' GitHub releases show up by themselves (nightly, or right away with the workflow below).' : ''}</p>
+    <p class="by">The hub remembers every version you list and links to its files (it doesn't copy them), so people can find an older one while you still host it. Remove a version here to take it off the list.${e.repo ? ' GitHub releases show up by themselves (within a few hours, or right away with the workflow below).' : ''}</p>
     ${e.repo ? automate(e) : ''}
     <h3>Add a version</h3>
     <form class="edit" id="vform" novalidate>
@@ -824,6 +914,7 @@ function route() {
   else if (h === '#/mine') mine()
   else if (h === '#/make') makeSheet()
   else if ((m = h.match(/^#\/try\/([a-z0-9-]+)(?:\/(fm1|smk37))?/))) trySheet(find(m[1]), m[2])
+  else if (listingPath() && find(listingPath())) detail(find(listingPath()))
   else if (dlg.open) dlg.close()
 }
 

@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Make your own firmware
+    url: https://mutant.cloud/#/make
+    about: How to start one, list it, and keep it updated automatically.

@@ -9,7 +9,7 @@
 // env: GITHUB_TOKEN (optional, else `gh auth token`; enables the GitHub refresh), SITE_URL (to keep ids stable)
 
 import { readFile, writeFile, mkdir } from 'node:fs/promises'
-import { slugify, parseRepo, repoKey, cleanUrl, baseOfRepo, BASE_INFO } from '../src/entry.js'
+import { slugify, parseRepo, repoKey, cleanUrl, baseOfRepo, BASE_INFO, RESERVED } from '../src/entry.js'
 import { inspect, deviceOf } from '../src/pkg.js'
 import { ghToken, wrangler, parseJson, DB_NAME } from './wrangler.js'
 
@@ -496,7 +496,8 @@ async function findHostedPackages(entries, gh) {
     for (const f of files) {
       if (!PKG.has(f.url)) {
         const k = KNOWN_SHA.get(f.url)
-        PKG.set(f.url, (await inspect(f.url, { digest: k?.digest, size: k?.size, headers: UA }).catch(() => null)) || false)
+        const c = await inspect(f.url, { digest: k?.digest, size: k?.size, headers: UA }).catch(() => undefined)
+        if (c !== undefined) PKG.set(f.url, c || false)
       }
     }
     files = files.filter((f) => PKG.get(f.url))
@@ -518,8 +519,8 @@ async function findHostedPackages(entries, gh) {
     const newest = (named.length ? named : all).map((t) => t.path).sort((x, y) => y.localeCompare(x, undefined, { numeric: true }))[0]
     if (!newest) continue
     const url = `https://raw.githubusercontent.com/${e.repo}/${oid}/${newest.split('/').map(encodeURIComponent).join('/')}`
-    const c = PKG.get(url) ?? (await inspect(url, { headers: UA }).catch(() => null))
-    PKG.set(url, c || false)
+    const c = PKG.get(url) ?? (await inspect(url, { headers: UA }).catch(() => undefined))
+    if (c !== undefined) PKG.set(url, c || false)
     // same device family as the package the Hub checked
     if (c && c.product.split('_')[0] === String(want.product).split('_')[0]) {
       const file = newest.split('/').pop()
@@ -563,8 +564,9 @@ async function checkPackages(entries) {
       while (list.length) {
         const a = list.shift()
         const k = KNOWN_SHA.get(a.url)
-        const c = await inspect(a.url, { digest: a._digest || k?.digest, size: a.size || k?.size, headers: UA }).catch(() => null)
-        PKG.set(a.url, c || false)
+        // (a download that failed isn't remembered, so the next run tries again)
+        const c = await inspect(a.url, { digest: a._digest || k?.digest, size: a.size || k?.size, headers: UA }).catch(() => undefined)
+        if (c !== undefined) PKG.set(a.url, c || false)
         if (++done % 50 === 0) log(`  ${done}/${todo.size}`)
       }
     })
@@ -683,7 +685,8 @@ async function main() {
 
   // assign ids
   const versions = new Map()
-  const used = new Set([...known.values(), ...(db?.ids || [])])
+  // (the site's own paths can't be ids: listings live at mutant.cloud/<id>)
+  const used = new Set([...known.values(), ...(db?.ids || []), ...RESERVED])
   for (const e of entries) {
     let id = known.get(e.key)
     if (!id) {

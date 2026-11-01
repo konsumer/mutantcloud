@@ -15,7 +15,8 @@ Every view of the list is a link, and filters combine:
 - `/?base=felucca&tag=drums`: drum firmware built on Felucca
 - `/?kind=tool`, `/?kind=all`, `&q=search words`, `&sort=added`
 - The site opens on FM1 firmware. `?device=all` shows every device.
-- `/#/p/fomajam`: one entry
+- `/fomajam`: one listing's own page. Link previews (Reddit, Discord, Mastodon, X…) show its name, maker, description and picture (the owner's, else the maker's, else its screenshot), so makers can share it as theirs. **Copy link** on a listing gives this address; `/#/p/fomajam` still works too.
+- IDs are only lowercase letters, digits and hyphens, and can't be any of the site's own paths (`RESERVED` in `src/entry.js`, enforced by the server whenever it picks an ID, and when it serves `/<id>`).
 
 Authors, devices, tags and "built on" are clickable all over the site, and a filtered view shows **Copy link** and **Clear** buttons.
 
@@ -35,7 +36,7 @@ Other pages: `/#/make` (the "Make your own" guide for makers), `/#/new` (add a l
 other hubs + GitHub ──collect.js──▶ D1 "auto" column ┐
                                                      ├─▶ effective entry ─▶ /firmware.json + site
 makers (GitHub login, CI action) ─▶ D1 "data" column ┘   (data wins over auto)
-every version ever seen ─▶ D1 releases table (old versions stay installable)
+every version ever seen ─▶ D1 releases table (links to the makers' files)
 ```
 
 - `scripts/collect.js` pulls [The Firmware Hub](https://thefirmwarehub.com/catalog.json), [FMDB](https://stanleygurvich.github.io/FMDB_FM1_FirmwareDatabase/feed.json) and [FM1 Editor](https://fm1-editor.com/firmware/) (the last one is scraped from HTML). It merges them by GitHub repo, following renamed repos, and pulls the full release history from GitHub. Output is `data/auto.sql`, which only ever writes the `auto` column and adds to `releases`. Hand edits are never overwritten.
@@ -59,6 +60,12 @@ Firmware the [FM-1 emulator](https://github.com/joakimeriksson/fm1-emu) (MIT) ha
 Owners can turn it off ("▶ Try in the emulator" in the edit form, `"emulator": false` in the API) if they'd rather send people to their own website or demo; their own "Try it" link then shows instead.
 
 The emulator can't load a firmware from a URL yet, only from its own lists. So firmware it doesn't have can't be tried here until it adds it (or gains a URL option).
+
+### Device IDs
+
+Every package carries a device ID (like `FM-1_745`): what the device reports, and how installers and apps tell which firmware is running. Listings show it ("Device ID", and next to each file), and it's searchable (`?q=FM-1_745`). When other listings use the same ID, the listing gets a muted note naming them, since those firmwares can't be told apart. Many Felucca forks share Felucca's `FM-1_900`, for example.
+
+Existing collisions are makers' real released files, so they aren't blocked. New makers can pick a free ID first: the "Make your own" guide has a checker, backed by `GET /api/ids?check=FM-1_745`. It checks against every version of every listing, including old ones, and suggests free IDs nearby. It accepts `FM-1_745`, `fm-1 745`, plain `745` (FM-1), or the SMK-37 Pro / Elite and MKE-P37 forms.
 
 ### Built on
 
@@ -106,22 +113,23 @@ Not on GitHub? Sign in and add versions by hand on the site (open your entry, th
 
 ## API
 
-| Method | Path                                 | Who                 | What                                                                                                       |
-| ------ | ------------------------------------ | ------------------- | ---------------------------------------------------------------------------------------------------------- |
-| GET    | `/firmware.json`                     | anyone              | everything (cached 5 min, ETag); filters: `device`, `kind`, `tag`, `author`, `base`, `q`                   |
-| GET    | `/catalog.json`                      | anyone              | The Firmware Hub format: `firmwares[]` (`pkg` is a direct URL) + `stock`; same filters                     |
-| GET    | `/api/entries/:id`                   | anyone              | one entry plus `history` (all versions)                                                                    |
-| GET    | `/api/entries/:id/releases`          | anyone              | version history                                                                                            |
-| GET    | `/api/me`                            | session             | you, plus entries you can manage                                                                           |
-| POST   | `/api/entries`                       | session             | add an entry; needs `"confirm": true`, and push access if it has a `repo`                                  |
-| PATCH  | `/api/entries/:id`                   | manager             | edit (only the fields you send); `{"hidden": true}` hides it; `repo` and `{"locked": true}` are admin-only |
-| DELETE | `/api/entries/:id`                   | manager             | delete (user-added) or hide (collected)                                                                    |
-| POST   | `/api/entries/:id/refresh`           | manager             | re-read the repo from GitHub now                                                                           |
-| POST   | `/api/entries/:id/releases`          | manager             | add a version `{version, date, url, assets: [{name, url}], prerelease}`                                    |
-| DELETE | `/api/entries/:id/releases/:version` | manager             | remove a version                                                                                           |
-| GET    | `/api/entries/:id/history`           | manager             | audit log                                                                                                  |
-| POST   | `/api/publish`                       | GitHub Actions OIDC | refresh from a release (see above)                                                                         |
-| POST   | `/api/admin/watch`                   | admin               | run the release watcher now (it runs by itself every 10 minutes)                                           |
+| Method | Path                                 | Who                 | What                                                                                                                |
+| ------ | ------------------------------------ | ------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/firmware.json`                     | anyone              | everything (cached 5 min, ETag); filters: `device`, `kind`, `tag`, `author`, `base`, `q`                            |
+| GET    | `/catalog.json`                      | anyone              | The Firmware Hub format: `firmwares[]` (`pkg` is a direct URL) + `stock`; same filters                              |
+| GET    | `/api/entries/:id`                   | anyone              | one entry plus `history` (all versions)                                                                             |
+| GET    | `/api/entries/:id/releases`          | anyone              | version history                                                                                                     |
+| GET    | `/api/ids`                           | anyone              | every device ID in use and which listings use it; `?check=FM-1_745` says whether one is free and suggests free ones |
+| GET    | `/api/me`                            | session             | you, plus entries you can manage                                                                                    |
+| POST   | `/api/entries`                       | session             | add an entry; needs `"confirm": true`, and push access if it has a `repo`                                           |
+| PATCH  | `/api/entries/:id`                   | manager             | edit (only the fields you send); `{"hidden": true}` hides it; `repo` and `{"locked": true}` are admin-only          |
+| DELETE | `/api/entries/:id`                   | manager             | delete (user-added) or hide (collected)                                                                             |
+| POST   | `/api/entries/:id/refresh`           | manager             | re-read the repo from GitHub now                                                                                    |
+| POST   | `/api/entries/:id/releases`          | manager             | add a version `{version, date, url, assets: [{name, url}], prerelease}`                                             |
+| DELETE | `/api/entries/:id/releases/:version` | manager             | remove a version                                                                                                    |
+| GET    | `/api/entries/:id/history`           | manager             | audit log                                                                                                           |
+| POST   | `/api/publish`                       | GitHub Actions OIDC | refresh from a release (see above)                                                                                  |
+| POST   | `/api/admin/watch`                   | admin               | run the release watcher now (it runs by itself every 10 minutes)                                                    |
 
 Writes from browsers must come from the same origin.
 
@@ -172,6 +180,13 @@ Commit `wrangler.jsonc` after `init`. The IDs in it aren't secret.
 Mostly, it keeps itself up to date:
 
 - **New versions arrive automatically.** A cron job in the worker (`triggers` in `wrangler.jsonc`, `watch()` in `src/worker.js`) checks 20 listed repos every 10 minutes, oldest-checked first, so every repo is seen every few hours. It reads each repo's public releases feed (`github.com/OWNER/REPO/releases.atom`): no API, no token, and a "nothing new" check is a cheap 304. Only a tag it hasn't seen costs more: that release's page and file list, plus a check of its `.fwsc` packages. Removed versions stay removed, and locked or hidden listings are skipped. Admins can run it now with `POST /api/admin/watch`.
+- **Every `.fwsc` is checked when it arrives** (watcher, CI publish, a version added by hand, a new listing or a refresh): it must be a real FM-1/SMK-37 package, and its device ID, sha256 and size are recorded. Only files that pass go into `/catalog.json` for installers like fm1buddy. A file that isn't a package is marked `invalid`; one that couldn't be downloaded is marked `unchecked` and retried.
+- **Downloads are re-checked later, too,** because makers can change a file without a new version. Each run re-checks some listings' current files (and their newest release, if that isn't the one shown), oldest first:
+  - **Files on makers' own sites, and M-VAVE's:** a conditional request; an unchanged file costs a 304.
+  - **GitHub release files:** checked in full once; after that, one request (no download) shows whether the file was re-uploaded under the same name, since its download link then points to a new stored file.
+  - **Files whose check failed:** download errors are retried every pass; files that weren't valid packages, weekly.
+  - **Files in a repo at a fixed commit** can't change, so they're skipped.
+    A replaced file gets its sha256 updated (so installers work again) and a dated note. A missing or invalid file gets a muted "Might not install right now" warning on its card and in its details. When a listing's newest version doesn't check out, the site shows the latest one that does and says why.
 - **Makers' CI publishes land instantly** (see "For makers" above), and makers can list themselves on the site.
 - **New listings from the other hubs:** run `npm run sync` now and then. It only adds firmware that isn't listed yet, asks GitHub about just those, and writes straight to the database, so no deploy is needed. It says what it skipped and why (for example, a repo listed already under its new GitHub name). `npm run sync -- --full` re-reads everything the old way; you should rarely need it.
 
@@ -187,14 +202,13 @@ Sync uses `GITHUB_TOKEN` if it's set, otherwise your `gh auth token`, and only o
 Each card's picture is, in order:
 
 1. the one the owner set on the site
-2. the maker's own card image: the `image` in their repo's `fmhub.json` (the same file The Firmware Hub reads)
+2. the maker's own: the `image` in their repo's `fmhub.json` (the same file The Firmware Hub reads), else a picture from their repo or site (README image, GitHub social preview)
 3. a screenshot of the firmware's own screen, from the FM-1 emulator
-4. any other picture from the repo (README image, GitHub social preview)
 
-Screenshots come from [fm1-emu](https://github.com/joakimeriksson/fm1-emu) (MIT). `npm run shots` downloads its latest release into `.cache/`, boots each firmware's checked package headlessly for 8 emulated seconds, keeps the last screen that isn't blank, and writes `public/shots/<id>.png` (240×240, scaled up with crisp pixels by CSS) plus `public/shots/index.json`. Commit them, then `npm run deploy`. The worker reads the index straight from the deployed files, so nothing needs re-collecting.
+Screenshots come from [fm1-emu](https://github.com/joakimeriksson/fm1-emu) (MIT). `npm run shots` downloads its latest release into `.cache/`, boots each firmware's checked package headlessly for 8 emulated seconds, keeps the last screen that isn't blank (a blank one gets one longer try in the same run), and writes `public/shots/<id>.png` (240×240, scaled up with crisp pixels by CSS) plus `public/shots/index.json`. Commit them, then `npm run deploy`. A screenshot that failed shows as a muted note in the listing's details. A hash mismatch says installers will refuse the file until it's re-checked, and that note goes away by itself once the watcher has re-checked it. The worker reads the index straight from the deployed files, so nothing needs re-collecting.
 
 ```sh
-npm run shots                    # only firmwares with no picture yet (failures are remembered and skipped)
+npm run shots                    # only firmwares with no picture at all: not ones already shot, ones with the maker's picture, or ones that failed before
 npm run shots -- --update        # also re-shoot ones whose package changed, and retry failures
 npm run shots -- --only fomajam  # just these (comma-separated)
 npm run shots -- --ms 12000      # run longer before the snapshot
@@ -220,3 +234,11 @@ This runs the worker and site on http://localhost:8787 against the **real** D1 d
 ## Adding a device
 
 Add it to `DEVICES` in `src/entry.js`. Every list and form picks it up from there.
+
+## Problems
+
+Every listing has a **Report a problem with this listing** link. It opens a GitHub issue form (`.github/ISSUE_TEMPLATE/listing.yml`) with the listing filled in. The footer links to all the forms, including one for site bugs. Makers can fix most things themselves by signing in; the issues are for what they can't change (like the repo a listing points to), missing firmware, and bugs.
+
+## License
+
+MIT (see [LICENSE](LICENSE)) for the code here. The listings themselves belong to their makers: each firmware has its own license, shown on its listing. The screenshots come from [fm1-emu](https://github.com/joakimeriksson/fm1-emu) running each firmware.
