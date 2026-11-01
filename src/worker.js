@@ -65,6 +65,10 @@ async function route(request, env, ctx, url) {
     return logout(request, env)
   }
 
+  // a listed package with CORS on (mutant.cloud/dl/<id>/<file>), for browser apps that can't read GitHub's downloads
+  const dl = pathname.match(/^\/dl\/([a-z0-9-]+)\/([^/]+)$/)
+  if (dl && (method === 'GET' || method === 'HEAD')) return download(request, env, ctx, dl[1], decodeURIComponent(dl[2]))
+
   // a listing's own link (mutant.cloud/<id>): the site, with that listing's name, description and picture in its
   // preview tags. Anything else falls through to the static files (and the site itself).
   const share = pathname.match(/^\/([a-z0-9-]+)\/?$/)
@@ -378,6 +382,42 @@ async function getOne(env, id) {
   if (e.hidden) throw new HttpError(404, 'no such entry')
   e.history = await versions(env, id)
   return json(e)
+}
+
+// --- downloads ------------------------------------------------------------
+
+const DL_MAX = 16 * 1024 * 1024
+
+// /dl/<id>/<file>: a package one of the listing's versions names, fetched from the maker's link and served with
+// CORS on, so emulators and installers in the browser can load it (GitHub's release downloads have no CORS).
+// Only listed files are served, so it is not an open proxy. Cached at the edge by its address.
+async function download(request, env, ctx, id, file) {
+  const url = new URL(request.url)
+  const key = new Request(`${url.origin}/dl/${id}/${encodeURIComponent(file)}`)
+  const cache = caches.default
+  let res = await cache.match(key)
+  if (!res) {
+    const row = await env.DB.prepare('SELECT hidden FROM entries WHERE id = ?').bind(id).first()
+    if (!row || row.hidden) throw new HttpError(404, 'no such entry')
+    const { results } = await env.DB.prepare(`SELECT assets FROM releases WHERE entry = ? AND source <> 'removed' ORDER BY date DESC, added DESC`).bind(id).all()
+    const asset = results.flatMap((r) => JSON.parse(r.assets || '[]')).find((a) => a.name === file && a.url)
+    if (!asset) throw new HttpError(404, 'no such file')
+    const up = await fetch(asset.url, { redirect: 'follow', headers: { 'user-agent': 'mutant.cloud' } })
+    if (!up.ok) throw new HttpError(502, `the maker's link answered ${up.status}`)
+    if (Number(up.headers.get('content-length') || 0) > DL_MAX) throw new HttpError(413, 'file too large')
+    const bytes = await up.arrayBuffer()
+    if (bytes.byteLength > DL_MAX) throw new HttpError(413, 'file too large')
+    res = new Response(bytes, {
+      headers: {
+        'content-type': 'application/octet-stream',
+        'content-disposition': `attachment; filename="${file.replace(/["\\]/g, '')}"`,
+        'cache-control': 'public, max-age=3600, s-maxage=86400',
+        'access-control-allow-origin': '*'
+      }
+    })
+    ctx.waitUntil(cache.put(key, res.clone()))
+  }
+  return request.method === 'HEAD' ? new Response(null, { headers: res.headers }) : res
 }
 
 // --- auth -----------------------------------------------------------------

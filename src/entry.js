@@ -69,7 +69,7 @@ export function parseRepo(s) {
 export const repoKey = (repo) => (repo ? repo.toLowerCase() : null)
 
 // listings live at mutant.cloud/<id>, so these can never be ids (the site's own paths, and some for later)
-export const RESERVED = new Set(['api', 'auth', 'p', 'make', 'new', 'mine', 'try', 'edit', 'versions', 'shots', 'firmware', 'catalog', 'about', 'admin', 'login', 'logout', 'static', 'assets', 'index', 'app', 'style', 'favicon', 'og', 'robots', 'sitemap', 'well-known', 'cdn-cgi', 'search', 'tags', 'tools', 'devices', 'help', 'docs', 'blog', 'news'])
+export const RESERVED = new Set(['api', 'auth', 'dl', 'p', 'make', 'new', 'mine', 'try', 'edit', 'versions', 'shots', 'firmware', 'catalog', 'about', 'admin', 'login', 'logout', 'static', 'assets', 'index', 'app', 'style', 'favicon', 'og', 'robots', 'sitemap', 'well-known', 'cdn-cgi', 'search', 'tags', 'tools', 'devices', 'help', 'docs', 'blog', 'news'])
 
 // who an author is in links and filters (?author=): their GitHub login if there's a repo, else their name as a
 // slug. public/app.js has the same function; keep them in step.
