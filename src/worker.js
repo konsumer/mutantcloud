@@ -249,12 +249,17 @@ async function listResponse(request, env, ctx, url) {
     const entries = whole.entries.filter((e) => matches(e, filter))
     if (path === '/catalog.json') {
       const cat = catalog(entries, whole.updated)
-      // per package: ?device=smk37 keeps only SMK-37 builds, not a firmware's FM1 ones too
+      // per package: ?device=smk37 keeps only SMK-37 builds, not a firmware's FM1 ones too; ?deviceId= only that ID
       if (filter.device && filter.device !== 'all') {
         cat.firmwares = cat.firmwares.filter((r) => r.devices.includes(filter.device))
         if (cat.stock && deviceOf(cat.stock.product) !== filter.device) cat.stock = null
-        cat.count = cat.firmwares.length
       }
+      if (filter.deviceId) {
+        const id = parseDeviceId(filter.deviceId)
+        cat.firmwares = cat.firmwares.filter((r) => r.product === id)
+        if (cat.stock && cat.stock.product !== id) cat.stock = null
+      }
+      cat.count = cat.firmwares.length
       res = await cachedJson({ ...cat, filter })
     } else {
       res = await cachedJson({ ...whole, filter, count: entries.length, entries })

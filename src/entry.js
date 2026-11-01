@@ -97,14 +97,15 @@ export function parseDeviceId(s) {
 }
 
 // the list filters, shared by the site's links and the JSON endpoints:
-//   device, kind (firmware | tool | all), tag, author, base, q (all words must match)
-export const FILTERS = ['device', 'kind', 'tag', 'author', 'base', 'q']
+//   device, kind (firmware | tool | all), tag, author, base, deviceId (exact: "FM-1_961"), q (all words must match)
+export const FILTERS = ['device', 'kind', 'tag', 'author', 'base', 'deviceId', 'q']
 export function matches(e, f) {
   if (f.device && f.device !== 'all' && !e.devices.includes(f.device)) return false
   if (f.kind && f.kind !== 'all' && e.kind !== f.kind) return false
   if (f.tag && !e.tags.includes(f.tag)) return false
   if (f.author && authorKey(e) !== f.author.toLowerCase()) return false
   if (f.base && e.base !== f.base) return false
+  if (f.deviceId && !deviceIds(e).includes(parseDeviceId(f.deviceId))) return false
   if (f.q) {
     const hay = [e.name, e.author, e.description, e.repo, e.base, BASE_INFO[e.base]?.name, ...e.tags, ...deviceIds(e)].join(' ').toLowerCase()
     if (

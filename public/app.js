@@ -13,7 +13,7 @@ let ME = { user: null, manages: [] }
 // the list's filters live in the URL, so any combination is a link:
 //   ?author=konsumer&device=fm1   ?device=smk37   ?base=felucca&tag=drums   ?kind=tool
 // the site opens on FM1 firmware; ?device=all shows every device
-const DEFAULTS = { q: '', kind: 'firmware', device: 'fm1', tag: '', author: '', base: '', sort: 'updated' }
+const DEFAULTS = { q: '', kind: 'firmware', device: 'fm1', tag: '', author: '', base: '', deviceId: '', sort: 'updated' }
 const state = { ...DEFAULTS }
 function readUrl() {
   const p = new URLSearchParams(location.search)
@@ -126,7 +126,7 @@ function notes(e) {
         .slice(0, 3)
         .map((x) => x.name)
         .join(', ') + (others.length > 3 ? ` and ${others.length - 3} more` : '')
-    out.push({ text: `Its device ID, ${id}, is also used by ${names}. Devices and apps that tell which firmware is running by its ID (like fm1buddy) can't tell these apart.` })
+    out.push({ text: `Shares its device ID, ${id}, with ${names}. That can be on purpose (firmwares that use each other's settings), but apps that tell which firmware is running by its ID (like fm1buddy) will see these as the same one.` })
   }
   const c = e.emuCheck
   if (c?.reason?.startsWith('sha256') && assets.some((a) => a.sha256 && a.sha256 === c.sha256)) {
@@ -261,6 +261,7 @@ function filtered() {
     if (state.tag && !e.tags.includes(state.tag)) return false
     if (state.author && authorKey(e) !== state.author) return false
     if (state.base && e.base !== state.base) return false
+    if (state.deviceId && !deviceIds(e).includes(state.deviceId)) return false
     if (!words.length) return true
     const hay = [e.name, e.author, e.description, e.repo, e.base, e.base && baseName(e.base), ...e.tags, ...deviceIds(e)].join(' ').toLowerCase()
     return words.every((w) => hay.includes(w))
@@ -307,8 +308,8 @@ function summary(list) {
   const kind = { firmware: n === 1 ? 'firmware' : 'firmwares', tool: n === 1 ? 'tool' : 'tools', all: 'firmwares & tools' }[state.kind]
   const authorName = state.author ? DATA.entries.find((e) => authorKey(e) === state.author)?.author || state.author : ''
   const x = (patch, label) => `<a class="chip on" data-f href="${esc(filterUrl(patch))}" title="Remove">${label} <span aria-hidden="true">×</span></a>`
-  const parts = [`<b>${n}</b>`, state.tag ? x({ tag: '' }, esc(state.tag)) : '', state.device !== 'all' ? x({ device: 'all' }, esc(DATA.devices[state.device] || state.device)) : '', esc(kind), state.author ? `by ${x({ author: '' }, esc(authorName))}` : '', state.base ? `built on ${x({ base: '' }, esc(baseName(state.base)))}` : '', state.q ? `matching ${x({ q: '' }, `“${esc(state.q)}”`)}` : ''].filter(Boolean)
-  const filteredView = ['tag', 'device', 'author', 'base', 'q', 'kind'].some((k) => state[k] !== DEFAULTS[k])
+  const parts = [`<b>${n}</b>`, state.tag ? x({ tag: '' }, esc(state.tag)) : '', state.device !== 'all' ? x({ device: 'all' }, esc(DATA.devices[state.device] || state.device)) : '', esc(kind), state.author ? `by ${x({ author: '' }, esc(authorName))}` : '', state.base ? `built on ${x({ base: '' }, esc(baseName(state.base)))}` : '', state.deviceId ? `with device ID ${x({ deviceId: '' }, esc(state.deviceId))}` : '', state.q ? `matching ${x({ q: '' }, `“${esc(state.q)}”`)}` : ''].filter(Boolean)
+  const filteredView = ['tag', 'device', 'author', 'base', 'deviceId', 'q', 'kind'].some((k) => state[k] !== DEFAULTS[k])
   $('#count').innerHTML = parts.join(' ') + (filteredView ? ` <span class="filter-actions"><button type="button" class="btn small" id="copylink">Copy link</button><a class="btn small ghost" data-f href="${esc(query({ ...DEFAULTS, sort: state.sort }))}">Clear</a></span>` : '')
   const title = $('#count')
     .textContent.replace(/\s*×\s*/g, ' ')
@@ -445,7 +446,7 @@ function detail(e) {
       ${
         deviceIds(e).length
           ? `<dt>Device ID</dt><dd>${deviceIds(e)
-              .map((id) => `<a class="mono" data-f href="${esc(query({ ...DEFAULTS, kind: 'all', device: 'all', q: id }))}" title="Everything that reports ${esc(id)}">${esc(id)}</a>`)
+              .map((id) => `<a class="mono" data-f href="${esc(query({ ...DEFAULTS, kind: 'all', device: 'all', deviceId: id }))}" title="Everything that reports ${esc(id)}">${esc(id)}</a>`)
               .join(', ')}</dd>`
           : ''
       }
