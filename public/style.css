@@ -1134,6 +1134,14 @@ form.edit {
   font-size: 12px;
 }
 
+.foot .report {
+  margin: 16px 0 0;
+}
+
+.foot .report a {
+  font-weight: 600;
+}
+
 @media (max-width: 560px) {
   .controls {
     position: static;
