@@ -318,6 +318,19 @@ function render() {
   summary(list)
   // (on a listing's own page the address stays as it is, so it can be shared)
   if (!listingPath()) history.replaceState(history.state, '', query(state) + location.hash)
+  feedLink()
+}
+
+// the RSS link follows the list's filters (the feed itself shows every device unless one is asked for)
+function feedLink() {
+  const p = new URLSearchParams()
+  for (const k of ['q', 'kind', 'device', 'tag', 'author', 'base', 'deviceId']) if (state[k] && state[k] !== 'all' && !(k === 'kind' && state[k] === 'firmware')) p.set(k, state[k])
+  if (state.kind === 'all') p.set('kind', 'all')
+  const href = '/feed.xml' + (p.toString() ? '?' + p : '')
+  const a = $('#feed')
+  if (a) a.href = href
+  const l = $('link[type="application/rss+xml"]')
+  if (l) l.href = href
 }
 
 // "12 drums FM1 firmwares by konsumer, built on FOMA": what this link shows, with ways to undo each part
