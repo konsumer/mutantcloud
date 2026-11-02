@@ -1,4 +1,4 @@
-import { DEVICES, KINDS, TAGS, BASES, BASE_INFO, baseOfRepo, isAdmin, FILTERS, matches, RESERVED, parseDeviceId, slugify, repoKey, repoOwner, cleanInput, cleanUrl, effective, canManage } from './entry.js'
+import { authorKey, DEVICES, KINDS, TAGS, BASES, BASE_INFO, baseOfRepo, isAdmin, FILTERS, matches, RESERVED, parseDeviceId, slugify, repoKey, repoOwner, cleanInput, cleanUrl, effective, canManage } from './entry.js'
 import { inspect, deviceOf, product, HEAD_BYTES } from './pkg.js'
 
 const SESSION_COOKIE = 'mc_session'
@@ -56,6 +56,10 @@ async function route(request, env, ctx, url) {
 
   if ((pathname === '/firmware.json' || pathname === '/api/entries' || pathname === '/catalog.json') && (method === 'GET' || method === 'HEAD')) {
     return listResponse(request, env, ctx, url)
+  }
+
+  if ((pathname === '/feed.xml' || pathname === '/rss.xml' || pathname === '/feed' || pathname === '/rss') && (method === 'GET' || method === 'HEAD')) {
+    return feed(request, env, ctx, url)
   }
 
   if (pathname === '/auth/login') return login(request, env, url)
@@ -284,6 +288,84 @@ async function listResponse(request, env, ctx, url) {
 // cached lists are keyed by the deployed version, so a deploy never serves a list the old code made
 const listKey = (origin, path, env) => new Request(`${origin}${path}?v=${env.CF_VERSION_METADATA?.id || 'dev'}`)
 const purge = (request, env) => Promise.all(LISTS.map((p) => caches.default.delete(listKey(new URL(request.url).origin, p, env))))
+
+// --- /feed.xml: RSS 2.0 of new versions -----------------------------------
+// One item per listing's newest version (release, or a newer pre-release), newest first. Same filters as
+// /firmware.json; kind defaults to firmware (?kind=all for tools too).
+
+const FEED_SIZE = 50
+const xml = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' })[c])
+const rfc822 = (iso) => {
+  const d = new Date(iso)
+  return isNaN(d) ? null : d.toUTCString()
+}
+
+async function feed(request, env, ctx, url) {
+  const u = new URL(url)
+  u.pathname = '/firmware.json'
+  if (!u.searchParams.get('kind')) u.searchParams.set('kind', 'firmware')
+  const list = await (await listResponse(new Request(u), env, ctx, u)).json()
+
+  const items = []
+  for (const e of list.entries) {
+    const rel = e.prerelease && (!e.release || (e.prerelease.date || '') > (e.release.date || '')) ? e.prerelease : e.release
+    const date = rel?.date || e.updated || e.added
+    if (!date) continue
+    items.push({ e, rel, date })
+  }
+  items.sort((a, b) => b.date.localeCompare(a.date))
+
+  const self = `${url.origin}${url.pathname}${url.search}`
+  const filters = Object.entries(list.filter || {})
+    .filter(([k]) => k !== 'kind')
+    .map(([k, v]) => `${k}: ${v}`)
+  const what = list.filter?.kind === 'tool' ? 'tools' : list.filter?.kind === 'all' ? 'firmware and tools' : 'firmware'
+  const title = `mutant.cloud · new ${what}${filters.length ? ` (${filters.join(', ')})` : ''}`
+  // the same list on the site (which opens on FM1 firmware, so say "all devices" when no device was asked for)
+  const sp = new URLSearchParams(list.filter)
+  if (!sp.has('device')) sp.set('device', 'all')
+  if (sp.get('kind') === 'firmware') sp.delete('kind')
+  const site = `${url.origin}/?${sp}`
+
+  const item = ({ e, rel, date }) => {
+    const link = `${url.origin}/${e.id}`
+    const devices = e.devices.map((d) => DEVICES[d] || d).join(' & ')
+    const pkg = (rel?.assets || []).find((a) => a.sha256 && a.size && /^https:\/\//.test(a.url))
+    const image = e.cover
+    const body = [image ? `<p><img src="${xml(image)}" alt="${xml(e.name)}" /></p>` : '', `<p>${xml(e.description || `${e.kind === 'tool' ? 'A tool' : 'Firmware'} for the ${devices}.`)}</p>`, `<p>By ${xml(e.author)}${devices ? ` · ${xml(devices)}` : ''}${rel?.prerelease ? ' · pre-release' : ''}</p>`, rel?.url ? `<p><a href="${xml(rel.url)}">Release notes</a></p>` : ''].join('')
+    return ['<item>', `<title>${xml(rel ? `${e.name} ${rel.version}` : e.name)}</title>`, `<link>${xml(link)}</link>`, `<guid isPermaLink="false">${xml(`${url.host}/${e.id}${rel ? `@${rel.version}` : ''}`)}</guid>`, rfc822(date) ? `<pubDate>${rfc822(date)}</pubDate>` : '', `<dc:creator>${xml(e.author)}</dc:creator>`, ...e.tags.map((t) => `<category>${xml(t)}</category>`), `<description>${xml(body)}</description>`, pkg ? `<enclosure url="${xml(pkg.url)}" length="${pkg.size}" type="application/octet-stream" />` : '', '</item>'].filter(Boolean).join('\n      ')
+  }
+
+  const text = `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>${xml(title)}</title>
+    <link>${xml(site)}</link>
+    <description>New versions of firmware and tools for the M-VAVE FM1, SMK-37 and friends.</description>
+    <language>en</language>
+    <atom:link href="${xml(self)}" rel="self" type="application/rss+xml" />
+    <lastBuildDate>${rfc822(list.updated) || new Date().toUTCString()}</lastBuildDate>
+    <ttl>${LIST_TTL / 60}</ttl>
+    <image>
+      <url>${url.origin}/og.png</url>
+      <title>${xml(title)}</title>
+      <link>${xml(site)}</link>
+    </image>
+    ${items.slice(0, FEED_SIZE).map(item).join('\n    ')}
+  </channel>
+</rss>
+`
+  const etag = `"${await sha1(text)}"`
+  const headers = {
+    'content-type': 'application/rss+xml; charset=utf-8',
+    'access-control-allow-origin': '*',
+    'access-control-expose-headers': 'etag',
+    'cache-control': env.LOCAL ? 'no-store' : `public, max-age=${LIST_TTL}`,
+    etag
+  }
+  if (request.headers.get('if-none-match') === etag) return new Response(null, { status: 304, headers })
+  return new Response(text, { headers })
+}
 
 // --- /catalog.json: The Firmware Hub's format (what fm1buddy reads) ------
 // One row per installable package of each firmware's latest release: pkg is a whole URL (the maker's own
@@ -1276,6 +1358,12 @@ async function listingPage(request, env, url, id) {
   return new HTMLRewriter()
     .on('meta', set)
     .on('title', { element: (el) => el.setInnerContent(`${title} · mutant.cloud`) })
+    .on('link[type="application/rss+xml"]', {
+      element: (el) => {
+        el.setAttribute('href', `/feed.xml?kind=all&author=${encodeURIComponent(authorKey(e))}`)
+        el.setAttribute('title', `New from ${e.author} · mutant.cloud`)
+      }
+    })
     .on('head', { element: (el) => el.append(`<link rel="canonical" href="${link}" />`, { html: true }) })
     .transform(new Response(page.body, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'public, max-age=300' } }))
 }
