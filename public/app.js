@@ -111,8 +111,8 @@ function notes(e) {
   const assets = [...(e.release?.assets || []), ...(e.prerelease?.assets || [])]
   for (const a of assets) {
     if (a.unchecked && !a.sha256) out.push({ warn: true, text: `${a.name} couldn't be downloaded to check it (on ${fmtDate(a.unchecked)}). It's retried automatically; until then, installers that need a checked file (like fm1buddy) won't offer it.` })
-    else if (a.missing) out.push({ warn: true, text: `${a.name} can't be downloaded (since ${fmtDate(a.missing)}). Installers will fail until the maker fixes the link.` })
-    else if (a.invalid) out.push({ warn: true, text: `${a.name} isn't a valid FM-1 package any more (since ${fmtDate(a.invalid)}), so installers will refuse it.` })
+    else if (a.missing) out.push({ warn: true, text: `${a.name} can't be downloaded (since ${fmtDate(a.missing)}), so it isn't offered here or to installers until the maker fixes the link.` })
+    else if (a.invalid) out.push({ warn: true, text: `${a.name} isn't a valid FM-1 package any more (since ${fmtDate(a.invalid)}), so it isn't offered here or to installers.` })
     else if (a.replaced && daysAgo(a.replaced) <= 60) out.push({ text: `${a.name} was replaced on ${fmtDate(a.replaced)} without a new version number. It's been re-checked, so installers work; if you installed it before then, you have the older build.` })
   }
   const n = e.newerUnchecked
@@ -152,7 +152,8 @@ async function api(path, opts = {}) {
 // --- primary actions ------------------------------------------------------
 
 function files(e) {
-  return (e.release?.assets || []).filter((a) => /^https?:/.test(a.url))
+  // (files the checks found gone or not a package aren't offered; the notes say why)
+  return (e.release?.assets || []).filter((a) => /^https?:/.test(a.url) && !a.missing && !a.invalid)
 }
 
 function getIt(e) {

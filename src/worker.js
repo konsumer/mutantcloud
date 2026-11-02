@@ -337,7 +337,7 @@ async function feed(request, env, ctx, url) {
   const item = ({ e, rel, date, first }) => {
     const link = `${url.origin}/${e.id}`
     const devices = e.devices.map((d) => DEVICES[d] || d).join(' & ')
-    const pkg = (rel?.assets || []).find((a) => a.sha256 && a.size && /^https:\/\//.test(a.url))
+    const pkg = pkgs(rel)[0]
     const image = e.cover
     const body = [image ? `<p><img src="${xml(image)}" alt="${xml(e.name)}" /></p>` : '', `<p>${xml(e.description || `${e.kind === 'tool' ? 'A tool' : 'Firmware'} for the ${devices}.`)}</p>`, `<p>${first ? 'New listing · ' : ''}By ${xml(e.author)}${devices ? ` · ${xml(devices)}` : ''}${rel?.prerelease ? ' · pre-release' : ''}</p>`, rel?.url ? `<p><a href="${xml(rel.url)}">Release notes</a></p>` : ''].join('')
     return ['<item>', `<title>${xml(`${first ? 'New: ' : ''}${e.name}${rel ? ` ${rel.version}` : ''}`)}</title>`, `<link>${xml(link)}</link>`, `<guid isPermaLink="false">${xml(`${url.host}/${e.id}${rel ? `@${rel.version}` : ''}`)}</guid>`, rfc822(date) ? `<pubDate>${rfc822(date)}</pubDate>` : '', `<dc:creator>${xml(e.author)}</dc:creator>`, ...e.tags.map((t) => `<category>${xml(t)}</category>`), `<description>${xml(body)}</description>`, pkg ? `<enclosure url="${xml(pkg.url)}" length="${pkg.size}" type="application/octet-stream" />` : '', '</item>'].filter(Boolean).join('\n      ')
@@ -379,7 +379,8 @@ async function feed(request, env, ctx, url) {
 // release file, never a copy), with the sha256, size and product checked from the file itself.
 
 const HUB_KIND = { groovebox: 'groove', synth: 'synth', drums: 'drums', chords: 'chords', tracker: 'tracker' }
-const pkgs = (r) => (r?.assets || []).filter((a) => a.sha256 && a.product && a.size && /^https:\/\//.test(a.url))
+// (a file the checks found gone or not a package isn't offered: the listing stays, as links only)
+const pkgs = (r) => (r?.assets || []).filter((a) => a.sha256 && a.product && a.size && !a.missing && !a.invalid && /^https:\/\//.test(a.url))
 const hubTime = (iso) => iso.slice(0, 16).replace('T', ' ') + ' UTC'
 
 function variantOf(file, e) {
