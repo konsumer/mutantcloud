@@ -5,7 +5,7 @@ Every firmware and tool for the M-VAVE FM1, SMK-37 and friends. It's self-serve:
 - **Site:** https://mutant.cloud
 - **JSON:** https://mutant.cloud/firmware.json (everything, CORS on, same filters as the site's links)
 - **Hub-format JSON:** https://mutant.cloud/catalog.json (The Firmware Hub's `catalog.json` shape with one row per verified package, which is what fm1buddy reads)
-- **RSS:** https://mutant.cloud/feed.xml (new versions, newest first, same filters; also at `/rss.xml`, `/feed` and `/rss`)
+- **RSS:** https://mutant.cloud/feed.xml (every new listing and version, newest first, same filters; also at `/rss.xml`, `/feed` and `/rss`)
 
 ## Links
 
@@ -26,7 +26,7 @@ The JSON endpoints take the same filters, so the same query works for apps:
 - `/firmware.json?author=konsumer&device=fm1`
 - `/catalog.json?device=smk37`: only SMK-37 packages. The catalog filters per package, so a firmware's FM1 build isn't included.
 - `/catalog.json?author=konsumer&device=fm1`
-- `/feed.xml?device=smk37`: RSS of new SMK-37 firmware. One item per listing's newest version (a newer pre-release counts), with its first verified `.fwsc` as the enclosure. It defaults to `kind=firmware`; pass `kind=tool` or `kind=all` for tools. The site's **RSS** link follows its filters, and each listing's page advertises a feed of its maker's work.
+- `/feed.xml?device=smk37`: RSS of new SMK-37 firmware: a timeline with one item per version (pre-releases too) and per new listing (titled `New:`), with the version's first verified `.fwsc` as the enclosure. It defaults to `kind=firmware`; pass `kind=tool` or `kind=all` for tools. The site's **RSS** link follows its filters, and each listing's page advertises a feed of its maker's work.
 
 One difference: the site opens on FM1 firmware, but the JSON returns every `kind` and every device unless you pass `kind=` or `device=`. Filtered responses echo the `filter` they used and have their own ETag. The matching rules live in `matches()` in `src/entry.js`, which both the worker and the site's links follow.
 
@@ -119,7 +119,7 @@ Not on GitHub? Sign in and add versions by hand on the site (open your entry, th
 | ------ | ------------------------------------ | ------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | GET    | `/firmware.json`                     | anyone              | everything (cached 5 min, ETag); filters: `device`, `kind`, `tag`, `author`, `base`, `q`                            |
 | GET    | `/catalog.json`                      | anyone              | The Firmware Hub format: `firmwares[]` (`pkg` is a direct URL) + `stock`; same filters                              |
-| GET    | `/feed.xml`                          | anyone              | RSS 2.0 of new versions (50 newest, ETag); same filters, `kind` defaults to `firmware`                              |
+| GET    | `/feed.xml`                          | anyone              | RSS 2.0 timeline of new listings and versions (50 newest, ETag); same filters, `kind` defaults to `firmware`        |
 | GET    | `/api/entries/:id`                   | anyone              | one entry plus `history` (all versions)                                                                             |
 | GET    | `/dl/:id/:file`                      | anyone              | a package one of the listing's versions names, with CORS on, for browser apps (GitHub's downloads have no CORS)     |
 | GET    | `/api/entries/:id/releases`          | anyone              | version history                                                                                                     |

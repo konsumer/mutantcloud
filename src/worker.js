@@ -289,8 +289,8 @@ async function listResponse(request, env, ctx, url) {
 const listKey = (origin, path, env) => new Request(`${origin}${path}?v=${env.CF_VERSION_METADATA?.id || 'dev'}`)
 const purge = (request, env) => Promise.all(LISTS.map((p) => caches.default.delete(listKey(new URL(request.url).origin, p, env))))
 
-// --- /feed.xml: RSS 2.0 of new versions -----------------------------------
-// One item per listing's newest version (release, or a newer pre-release), newest first. Same filters as
+// --- /feed.xml: RSS 2.0 of new listings and versions --------------------------
+// A timeline: one item per version (pre-releases too) and per new listing, newest first. Same filters as
 // /firmware.json; kind defaults to firmware (?kind=all for tools too).
 
 const FEED_SIZE = 50
@@ -306,14 +306,21 @@ async function feed(request, env, ctx, url) {
   if (!u.searchParams.get('kind')) u.searchParams.set('kind', 'firmware')
   const list = await (await listResponse(new Request(u), env, ctx, u)).json()
 
+  // the timeline: every version of every matching listing, newest first. A listing's first version is its
+  // arrival; a listing with no versions yet arrives on the day it was added.
+  const by = new Map(list.entries.map((e) => [e.id, e]))
+  const { results } = await env.DB.prepare(`SELECT * FROM (SELECT entry, version, COALESCE(date, added) AS date, url, prerelease, assets, added AS seen, ROW_NUMBER() OVER (PARTITION BY entry ORDER BY COALESCE(date, added), added) = 1 AS first FROM releases WHERE source <> 'removed') ORDER BY date DESC, seen DESC`).all()
   const items = []
-  for (const e of list.entries) {
-    const rel = e.prerelease && (!e.release || (e.prerelease.date || '') > (e.release.date || '')) ? e.prerelease : e.release
-    const date = rel?.date || e.updated || e.added
-    if (!date) continue
-    items.push({ e, rel, date })
+  const seen = new Set()
+  for (const r of results) {
+    const e = by.get(r.entry)
+    if (!e) continue
+    seen.add(e.id)
+    items.push({ e, rel: parseRel(r), date: r.date, seen: r.seen, first: !!r.first })
   }
-  items.sort((a, b) => b.date.localeCompare(a.date))
+  for (const e of list.entries) if (!seen.has(e.id) && !e.latest?.count && e.added) items.push({ e, date: e.added, seen: e.added, first: true })
+  // (same-day versions: the one this hub saw last first)
+  items.sort((a, b) => b.date.localeCompare(a.date) || (b.seen || '').localeCompare(a.seen || ''))
 
   const self = `${url.origin}${url.pathname}${url.search}`
   const filters = Object.entries(list.filter || {})
@@ -327,13 +334,13 @@ async function feed(request, env, ctx, url) {
   if (sp.get('kind') === 'firmware') sp.delete('kind')
   const site = `${url.origin}/?${sp}`
 
-  const item = ({ e, rel, date }) => {
+  const item = ({ e, rel, date, first }) => {
     const link = `${url.origin}/${e.id}`
     const devices = e.devices.map((d) => DEVICES[d] || d).join(' & ')
     const pkg = (rel?.assets || []).find((a) => a.sha256 && a.size && /^https:\/\//.test(a.url))
     const image = e.cover
-    const body = [image ? `<p><img src="${xml(image)}" alt="${xml(e.name)}" /></p>` : '', `<p>${xml(e.description || `${e.kind === 'tool' ? 'A tool' : 'Firmware'} for the ${devices}.`)}</p>`, `<p>By ${xml(e.author)}${devices ? ` · ${xml(devices)}` : ''}${rel?.prerelease ? ' · pre-release' : ''}</p>`, rel?.url ? `<p><a href="${xml(rel.url)}">Release notes</a></p>` : ''].join('')
-    return ['<item>', `<title>${xml(rel ? `${e.name} ${rel.version}` : e.name)}</title>`, `<link>${xml(link)}</link>`, `<guid isPermaLink="false">${xml(`${url.host}/${e.id}${rel ? `@${rel.version}` : ''}`)}</guid>`, rfc822(date) ? `<pubDate>${rfc822(date)}</pubDate>` : '', `<dc:creator>${xml(e.author)}</dc:creator>`, ...e.tags.map((t) => `<category>${xml(t)}</category>`), `<description>${xml(body)}</description>`, pkg ? `<enclosure url="${xml(pkg.url)}" length="${pkg.size}" type="application/octet-stream" />` : '', '</item>'].filter(Boolean).join('\n      ')
+    const body = [image ? `<p><img src="${xml(image)}" alt="${xml(e.name)}" /></p>` : '', `<p>${xml(e.description || `${e.kind === 'tool' ? 'A tool' : 'Firmware'} for the ${devices}.`)}</p>`, `<p>${first ? 'New listing · ' : ''}By ${xml(e.author)}${devices ? ` · ${xml(devices)}` : ''}${rel?.prerelease ? ' · pre-release' : ''}</p>`, rel?.url ? `<p><a href="${xml(rel.url)}">Release notes</a></p>` : ''].join('')
+    return ['<item>', `<title>${xml(`${first ? 'New: ' : ''}${e.name}${rel ? ` ${rel.version}` : ''}`)}</title>`, `<link>${xml(link)}</link>`, `<guid isPermaLink="false">${xml(`${url.host}/${e.id}${rel ? `@${rel.version}` : ''}`)}</guid>`, rfc822(date) ? `<pubDate>${rfc822(date)}</pubDate>` : '', `<dc:creator>${xml(e.author)}</dc:creator>`, ...e.tags.map((t) => `<category>${xml(t)}</category>`), `<description>${xml(body)}</description>`, pkg ? `<enclosure url="${xml(pkg.url)}" length="${pkg.size}" type="application/octet-stream" />` : '', '</item>'].filter(Boolean).join('\n      ')
   }
 
   const text = `<?xml version="1.0" encoding="UTF-8"?>
