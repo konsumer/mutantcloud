@@ -563,6 +563,7 @@ const ghHeaders = (token) => ({
 async function ghGet(path, token) {
   const r = await fetch(`https://api.github.com${path}`, { headers: ghHeaders(token) })
   if (r.status === 404) return null
+  if (r.status === 401 && token) throw new HttpError(401, 'your GitHub sign-in has expired: sign out and sign in again', { relogin: true })
   if (!r.ok) throw new HttpError(502, `GitHub said ${r.status}`)
   return r.json()
 }
@@ -682,7 +683,17 @@ async function checkAssets(rels, also = []) {
 }
 
 async function repoInfo(repo, token) {
-  const r = await ghGet(`/repos/${repo}`, token)
+  // a dead sign-in token (revoked, or pushed out by newer sign-ins) can still read public repos without it
+  let stale = false
+  let r
+  try {
+    r = await ghGet(`/repos/${repo}`, token)
+  } catch (err) {
+    if (!err.extra?.relogin) throw err
+    stale = true
+    token = undefined
+    r = await ghGet(`/repos/${repo}`)
+  }
   if (!r) return null
   if (r.private) return { private: true }
   const releases = ((await ghGet(`/repos/${repo}/releases?per_page=100`, token)) || []).filter((x) => !x.draft)
@@ -707,7 +718,7 @@ async function repoInfo(repo, token) {
   const devs = [...(out.release?.assets || []), ...(out.prerelease?.assets || [])].map((a) => deviceOf(a.product)).filter(Boolean)
   if (devs.length) out.devices = [...new Set(devs)]
   // canPush: what GitHub says the token's owner may do with this repo (owner, collaborator, org member)
-  return { info: JSON.parse(JSON.stringify(out)), all, canPush: !!(r.permissions?.push || r.permissions?.admin) }
+  return { info: JSON.parse(JSON.stringify(out)), all, stale, canPush: !!(r.permissions?.push || r.permissions?.admin) }
 }
 
 // --- write endpoints ------------------------------------------------------
@@ -763,6 +774,8 @@ async function create(request, env, ctx) {
     if (!gh) throw new HttpError(400, 'could not find that repo on GitHub (it must be public)')
     if (gh.private) throw new HttpError(400, 'that repo is private: only public repos can be listed')
     // listing a repo means managing it: only people who can push to it (GitHub decides, checked right now)
+    // admins can list anyone's repo (the owner can take it over by signing in)
+    if (!admin && gh.stale) throw new HttpError(401, 'your GitHub sign-in has expired: sign out and sign in again')
     if (!admin && !gh.canPush) {
       throw new HttpError(403, `you can only list repos you own or can push to, and GitHub says you can't push to ${gh.info.repo}. If it's yours from another account, sign in with that one; if it's someone else's, ask them to list it.`)
     }
@@ -814,7 +827,7 @@ async function edit(request, env, ctx, id) {
     if (patch.repo) {
       const taken = await repoTaken(env, patch.repo, id)
       if (taken) throw new HttpError(409, 'that repo is already listed', { id: taken })
-      if (!(await ghGet(`/repos/${patch.repo}`, user.token))) throw new HttpError(400, 'could not find that repo on GitHub')
+      if (!(await ghGet(`/repos/${patch.repo}`, user.token).catch((err) => (err.extra?.relogin ? ghGet(`/repos/${patch.repo}`) : Promise.reject(err))))) throw new HttpError(400, 'could not find that repo on GitHub')
     }
     repo = repoKey(patch.repo)
   }
