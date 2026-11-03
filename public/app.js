@@ -980,6 +980,13 @@ loadEmulator()
 
 async function reload() {
   const [data, me] = await Promise.all([fetch('/firmware.json', { cache: 'no-store' }).then((r) => r.json()), api('/api/me').catch(() => ({ user: null, manages: [] }))])
+  // the server ended a session whose GitHub token died: sign in again (once per tab, so it can't loop)
+  if (me.relogin && !sessionStorage.getItem('relogin')) {
+    sessionStorage.setItem('relogin', '1')
+    location.href = `/auth/login?next=${encodeURIComponent(location.pathname + location.search + location.hash)}`
+    return
+  }
+  if (me.user) sessionStorage.removeItem('relogin')
   DATA = data
   ME = me
   const makers = new Set(DATA.entries.map((e) => (e.github || e.author).toLowerCase()))

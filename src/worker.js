@@ -619,9 +619,26 @@ async function logout(request, env) {
   return json({ ok: true }, 200, { 'set-cookie': setCookie(SESSION_COOKIE, '', 0, env) })
 }
 
+// how often a session re-checks its GitHub token (and the repos it can push to)
+const RECHECK = 60 * 60 * 1000
+
 async function me(request, env) {
   const user = await session(request, env)
   if (!user) return json({ user: null })
+  if (!(Date.parse(user.checked || user.at) > Date.now() - RECHECK)) {
+    const sid = cookies(request)[SESSION_COOKIE]
+    try {
+      user.repos = await pushableRepos(user.token)
+      user.checked = new Date().toISOString()
+      await env.SESSIONS.put(`s:${sid}`, JSON.stringify(user), { expirationTtl: SESSION_TTL })
+    } catch (err) {
+      // GitHub dropped the token: end the session so the page signs in again (GitHub skips the prompt if already approved)
+      if (err.extra?.relogin) {
+        await env.SESSIONS.delete(`s:${sid}`)
+        return json({ user: null, relogin: true }, 200, { 'set-cookie': setCookie(SESSION_COOKIE, '', 0, env) })
+      }
+    }
+  }
   const admin = admins(env).some((a) => a.toLowerCase() === user.login.toLowerCase())
   // "mine" never includes everything just because you're an admin
   const manages = (await rows(env)).map(effective).filter((e) => canManage({ ...e, locked: false }, user, []))
