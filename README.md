@@ -63,6 +63,14 @@ Owners can turn it off ("▶ Try in the emulator" in the edit form, `"emulator":
 
 The emulator can't load a firmware from a URL yet, only from its own lists. So firmware it doesn't have can't be tried here until it adds it (or gains a URL option).
 
+### Install from the browser, and /rescue
+
+Every package (`.fwsc` for the FM1, SMK-37 Pro / Elite or MKE-P37) in a listing's files has an **Install** button. It opens `/#/install/<id>/<file>`, which writes it over USB-MIDI from Chrome or Edge. **Find my device** asks the device what it is first. A package for another model is never written (the same version's file for that model is offered instead), and the download (through `/dl`) has to match the listing's sha256 and device ID. The device is checked once more just before writing.
+
+[mutant.cloud/rescue](https://mutant.cloud/rescue) is its own page, to link people to. It puts M-VAVE's stock firmware back (FM1 V15, SMK-37 Pro / Elite and MKE-P37 V16, from the `stock` listing, matched to the model plugged in), finishes an install that was cut off (a device left in update mode), or installs a file from the computer. The chip's boot ROM, the last resort, is a USB disk, and browsers can't reach those (WebUSB blocks them), so the page points to [lilfm1buddy](https://github.com/konsumer/lilfm1buddy) and the native tools for that.
+
+The update protocol is [fomajam](https://github.com/konsumer/fomajam)'s `web/fm1ota.js` and `web/fm1pkg.js`, copied unchanged into `public/vendor/` (GPL-3.0, their own license; the rest of this repo is MIT). `public/flash.js` is the part both pages share.
+
 ### Device IDs
 
 Every package carries a device ID (like `FM-1_745`): what the device reports, and how installers and apps tell which firmware is running. Listings show it ("Device ID", and next to each file), and it's searchable (`?q=FM-1_745`). When other listings use the same ID, the listing gets a muted note naming them, since those firmwares can't be told apart. Many Felucca forks share Felucca's `FM-1_900`, for example.

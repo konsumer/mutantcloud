@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Rescue an FM1 or SMK-37 · mutant.cloud</title>
+    <meta name="description" content="Put an M-VAVE FM1 or SMK-37 back to its stock firmware, or finish an install that was cut off, from your browser." />
+    <meta property="og:title" content="Rescue an FM1 or SMK-37" />
+    <meta property="og:description" content="Put an M-VAVE FM1 or SMK-37 back to its stock firmware, or finish an install that was cut off, from your browser." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://mutant.cloud/rescue" />
+    <meta property="og:site_name" content="mutant.cloud" />
+    <meta property="og:image" content="https://mutant.cloud/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="theme-color" content="#15131b" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <header class="top">
+      <a class="logo" href="/" aria-label="mutant.cloud home">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><use href="#blob" /></svg>
+        <span>mutant<b>.cloud</b></span>
+      </a>
+      <nav class="nav">
+        <a class="ghost" href="/">All firmware</a>
+      </nav>
+    </header>
+
+    <main class="page">
+      <section class="hero">
+        <h1>Rescue your <span class="hl a">FM1</span> or <span class="hl b">SMK-37</span>.</h1>
+        <p class="sub">Put M-VAVE's stock firmware back, or finish an install that was cut off, from this page. It works in Chrome or Edge on a computer, over a USB cable.</p>
+      </section>
+
+      <section class="panel" style="--h: 340">
+        <h2><span class="num">1</span>Back to stock</h2>
+        <p>The firmware it came with: <b>FM1 V15</b>, or <b>V16</b> for the SMK-37 Pro, SMK-37 Elite and MKE-P37. The page asks the device which model it is and picks the matching file from the <a href="/stock">M-VAVE stock listing</a>. Each file is checked (its sha256 and the model in it) before anything is written.</p>
+        <p>This also finishes an install that was cut off. A device left in update mode (dark screen, or it says UPDATE) shows up here, and installing stock completes it.</p>
+        <div id="stockfiles" class="dim">Loading the stock files…</div>
+        <div id="stock"></div>
+      </section>
+
+      <section class="panel" style="--h: 170">
+        <h2><span class="num">2</span>A file of your own</h2>
+        <p>Any <code>.fwsc</code> package: finish the install that was cut off with the firmware you were installing, or put on another one. It still has to be for the model that's plugged in.</p>
+        <label class="field"><span>Package</span><input type="file" id="own" accept=".fwsc" /></label>
+        <p id="owninfo" class="dim"></p>
+        <div id="ownflash"></div>
+      </section>
+
+      <section class="panel" style="--h: 40">
+        <h2><span class="num">3</span>Nothing answers</h2>
+        <p>Everything above uses the update mode that firmwares and M-VAVE's updater use, over MIDI. If the device doesn't show up at all:</p>
+        <ul>
+          <li>Try another cable (a data cable), another USB port, and no hub. Switch it off and on.</li>
+          <li>Firmware built on <a href="/fomajam">fomajam</a> has a USB rescue mode: hold <b>OCT-</b> while you switch it on, then come back here.</li>
+          <li>Some firmwares don't take the update command. Go back to stock once from their own menu or updater, or use the boot ROM (below).</li>
+        </ul>
+        <h3>The boot ROM: the last resort</h3>
+        <p>The chip (JieLi WL82) has a boot loader in its ROM that no firmware can break, so these devices can always be recovered. It shows up on the computer as a <b>USB disk</b>, and browsers aren't allowed to talk to USB disks (WebUSB blocks them, on purpose), so this page can't reach it. These can:</p>
+        <ul>
+          <li><a href="https://konsumer.js.org/lilfm1buddy/" target="_blank" rel="noopener">lilfm1buddy</a>: a tiny ESP32-S3 board that plugs into the device's USB port. It gets in through the boot ROM, backs up and restores the whole firmware, and installs stock or anything else, with no computer. It never touches the flash's head, so it can't make things worse.</li>
+          <li><a href="https://github.com/charlesvestal/fm1-x0x/blob/main/tools/fm1_rescue.sh" target="_blank" rel="noopener">fm1_rescue.sh</a> (macOS): puts the FM1's official firmware back through the boot ROM.</li>
+          <li><a href="https://github.com/kurogedelic/FM-1-transporter" target="_blank" rel="noopener">FM-1-transporter</a>: the boot ROM protocol and tools behind all of these.</li>
+        </ul>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <div class="foot-row">
+        <p class="fine">The installer is <a href="https://github.com/konsumer/fomajam" target="_blank" rel="noopener">fomajam</a>'s (GPL-3.0, after Felucca's M-UPGRADE protocol by Leo Kuroshita, Hügelton Instruments). Not affiliated with M-VAVE. Install at your own risk.</p>
+        <a class="report" href="https://github.com/konsumer/mutantcloud/issues/new/choose" target="_blank" rel="noopener">Report an issue</a>
+      </div>
+    </footer>
+
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <symbol id="blob" viewBox="0 0 32 32">
+        <path fill="var(--c1)" d="M8 22c-4 0-6-3-6-6s3-6 6-6c1-4 4-7 8-7 5 0 8 4 8 8 4 0 6 3 6 6s-3 5-6 5H8z" />
+        <circle cx="12" cy="15" r="2.4" fill="#fff" />
+        <circle cx="12.6" cy="15.4" r="1.1" fill="#1d1a24" />
+        <circle cx="20" cy="13" r="3.2" fill="#fff" />
+        <circle cx="20.8" cy="13.6" r="1.5" fill="#1d1a24" />
+        <path d="M13 21q4 3 8-1" stroke="#1d1a24" stroke-width="1.6" fill="none" stroke-linecap="round" />
+      </symbol>
+    </svg>
+    <script type="module" src="/rescue.js"></script>
+  </body>
+</html>

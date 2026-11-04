@@ -1,5 +1,7 @@
 // mutant.cloud front end: no build step, no framework
 
+import { mountFlasher, isPackage, isBusy, checkFor, deviceName } from './flash.js'
+
 const $ = (s, el = document) => el.querySelector(s)
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])
 const safe = (u) => (/^https?:\/\//i.test(u || '') ? esc(u) : '#')
@@ -437,7 +439,7 @@ const dlg = $('#dlg')
 function open(html, h = 340) {
   dlg.classList.remove('wide')
   $('#dlg-body').innerHTML = `<div class="sheet" style="--h:${h}"><button class="close" type="button" aria-label="Close">×</button>${html}</div>`
-  $('.close', dlg).onclick = () => dlg.close()
+  $('.close', dlg).onclick = () => isBusy() || dlg.close()
   if (!dlg.open) dlg.showModal()
   dlg.scrollTop = 0
 }
@@ -449,7 +451,11 @@ dlg.addEventListener('close', () => {
   if (location.hash.startsWith('#/') || listingPath()) history.pushState(null, '', (listingPath() ? '/' : location.pathname) + location.search)
 })
 dlg.addEventListener('click', (ev) => {
-  if (ev.target === dlg) dlg.close()
+  if (ev.target === dlg && !isBusy()) dlg.close()
+})
+// (Esc) not while a firmware is being written
+dlg.addEventListener('cancel', (ev) => {
+  if (isBusy()) ev.preventDefault()
 })
 
 function detail(e) {
@@ -477,7 +483,7 @@ function detail(e) {
     ${e.cover ? `<div class="shots"><img class="shot${e.coverIsScreen ? ' screen' : ''}" src="${safe(e.cover)}" ${fallback(e)} alt="" loading="lazy" onerror="picFail(this)" /></div>` : ''}
     ${e.description ? `<p class="lead">${esc(e.description)}</p>` : ''}
     <div class="actions">${emuFor(e) ? `<a class="btn primary" href="#/try/${esc(e.id)}">▶ Try it in your browser</a>` : ''}${links.map((l, i) => ext(l.url, l.label, i === 0 && !emuFor(e) ? 'btn primary' : 'btn')).join('')}<button type="button" class="btn ghost" data-copy="${esc(pageUrl(e))}" title="Its own page: shows its picture when you share it">Copy link</button></div>
-    ${f.length ? `<h3>Files${e.release?.version ? ` <span class="mono by">${esc(e.release.version)}</span>` : ''}</h3>${fileList(f)}` : ''}
+    ${f.length ? `<h3>Files${e.release?.version ? ` <span class="mono by">${esc(e.release.version)}</span>` : ''}</h3>${fileList(f, e)}` : ''}
     <div id="history"></div>
     <dl class="facts">
       ${
@@ -506,6 +512,7 @@ function detail(e) {
       <dt>JSON</dt><dd><a href="/api/entries/${esc(e.id)}" class="mono">/api/entries/${esc(e.id)}</a></dd>
       <dt>Something wrong?</dt><dd><a href="${safe(reportUrl(e))}" target="_blank" rel="noopener">Report a problem with this listing ↗</a></dd>
     </dl>
+    ${e.stock ? '<p class="note">Want your device back to how it came? The <a href="/rescue">rescue page</a> finds out which model it is and installs the right one, and finishes an install that was cut off.</p>' : ''}
     ${e.beta ? '<p class="note">Marked beta / experimental by its maker.</p>' : ''}
     ${notes(e)
       .map((n) => `<p class="note muted">${n.warn ? '⚠ ' : ''}${esc(n.text)}</p>`)
@@ -517,7 +524,45 @@ function detail(e) {
   wireCopy()
 }
 
-const fileList = (f) => `<ul class="files">${f.map((a) => `<li><a href="${safe(a.url)}">${esc(a.name)}</a><span class="mono">${a.product ? `${esc(a.product)} · ` : ''}${fmtSize(a.size)}</span></li>`).join('')}</ul>`
+// a version's files; a package for a known device gets an Install button (#/install/<id>/<file>)
+const fileList = (f, e) => `<ul class="files">${f.map((a) => `<li><a href="${safe(a.url)}">${esc(a.name)}</a><span class="fmeta"><span class="mono">${a.product ? `${esc(a.product)} · ` : ''}${fmtSize(a.size)}</span>${e && isPackage(a) && !a.missing && !a.invalid ? `<a class="btn small" href="#/install/${esc(e.id)}/${esc(encodeURIComponent(a.name))}" title="Write it to your ${esc(deviceName(a.product))} over USB, from this page">Install</a>` : ''}</span></li>`).join('')}</ul>`
+
+// installing one file from the browser (flash.js): the device is asked what it is first, and a package for another
+// model is never written (the same release's file for that model is offered instead)
+async function installSheet(e, name) {
+  if (!e) return detail(e)
+  let a = files(e).find((x) => x.name === name)
+  let siblings = files(e)
+  if (!a) {
+    // an older version's file
+    const list = await api(`/api/entries/${e.id}/releases`).catch(() => [])
+    const v = list.find((v) => v.assets.some((x) => x.name === name))
+    a = v?.assets.find((x) => x.name === name)
+    siblings = v?.assets || []
+  }
+  if (!a || !isPackage(a)) return open(`<h2 id="dlg-title">Not found</h2><p>${esc(e.name)} has no installable file called <span class="mono">${esc(name)}</span>.</p><div class="actions"><a class="btn" href="#/p/${esc(e.id)}">Back to ${esc(e.name)}</a></div>`)
+  open(
+    `<h2 id="dlg-title">Install ${esc(e.name)}</h2>
+    <p class="by"><span class="mono">${esc(a.name)}</span> · <span class="mono">${esc(a.product)}</span> · for the <b>${esc(deviceName(a.product))}</b></p>
+    <ol class="steps">
+      <li>Connect the device to this computer with a USB data cable, and switch it on.</li>
+      <li>Press <b>Find my device</b>, and allow MIDI when the browser asks. Its model is checked: nothing is written to the wrong one.</li>
+      <li>Press <b>Install</b>. It takes a minute or two: keep it plugged in until it says done.</li>
+    </ol>
+    <div id="flasher"></div>
+    <p class="note muted">Chrome or Edge on a computer. If it gets cut off, the device waits in update mode: install again, or use the <a href="/rescue">rescue page</a>, which also puts M-VAVE's stock firmware back. Installing other firmware is at your own risk.</p>
+    <div class="actions"><a class="btn ghost" href="#/p/${esc(e.id)}">Back to ${esc(e.name)}</a></div>`,
+    hue(e.id)
+  )
+  mountFlasher($('#flasher'), {
+    pick(dev) {
+      const bad = checkFor(dev, a.product)
+      if (!bad) return { pkg: { url: `/dl/${e.id}/${encodeURIComponent(a.name)}`, sha256: a.sha256, product: a.product, label: `${a.name} (${a.product})` } }
+      const alt = siblings.find((x) => isPackage(x) && !x.missing && !x.invalid && !checkFor(dev, x.product))
+      return { problem: `${bad}${alt ? ` This version has a file for it: <a href="#/install/${esc(e.id)}/${esc(encodeURIComponent(alt.name))}">${esc(alt.name)}</a>.` : ` ${esc(e.name)} has no file for it here.`}` }
+    }
+  })
+}
 
 async function loadHistory(e) {
   const list = await api(`/api/entries/${e.id}/releases`).catch(() => [])
@@ -526,7 +571,7 @@ async function loadHistory(e) {
   el.innerHTML = `<details class="versions"><summary>All ${list.length} versions</summary>${list
     .map(
       (v) => `<div class="ver"><div><b class="mono">${esc(v.version)}</b>${v.prerelease ? ' <span class="badge warn">pre</span>' : ''} <span class="by">${fmtDate(v.date)} (${when(v.date)})</span>${v.url ? ` · <a href="${safe(v.url)}" target="_blank" rel="noopener">notes</a>` : ''}</div>
-      ${v.assets.length ? fileList(v.assets) : ''}</div>`
+      ${v.assets.length ? fileList(v.assets, e) : ''}</div>`
     )
     .join('')}</details>`
 }
@@ -1042,6 +1087,9 @@ function form(e) {
 function route() {
   const h = location.hash
   let m
+  // never swap the sheet out from under a firmware being written
+  if (isBusy()) return
+  if ((m = h.match(/^#\/install\/([a-z0-9-]+)\/(.+)$/))) return installSheet(find(m[1]), decodeURIComponent(m[2]))
   if ((m = h.match(/^#\/p\/([a-z0-9-]+)/))) detail(find(m[1]))
   else if ((m = h.match(/^#\/edit\/([a-z0-9-]+)/))) form(find(m[1]))
   else if ((m = h.match(/^#\/versions\/([a-z0-9-]+)/))) versionsSheet(find(m[1]))
