@@ -109,7 +109,8 @@ export function checkFor(dev, product) {
 }
 
 // a two-step installer in el: "Find my device", then "Install" once the device is known and pick() said what goes
-// on it. pick(dev): { pkg: { url | raw, sha256?, product, label } } or { problem: html }
+// on it. pick(dev): { pkg: { url | raw, sha256?, product, label }, note?: html }, { choices: [pkg, ...], note? } (the person
+// picks one), or { problem: html }
 export function mountFlasher(el, { pick, verb = 'Install', intro = '' }) {
   el.innerHTML = `<div class="flasher">
     ${intro}
@@ -156,10 +157,18 @@ export function mountFlasher(el, { pick, verb = 'Install', intro = '' }) {
         log(`found ${dev.text}${dev.ota ? ' (update mode)' : ''} on "${dev.port}"`)
         const p = await pick(dev)
         if (p.problem) say(`Found ${describe(dev)}<br>${p.problem}`, 'bad')
-        else {
+        else if (p.choices) {
+          // builds for the same model (variants): the first is picked until another is
+          ready = { dev, pkg: p.choices[0] }
+          const group = `fl-pick-${Math.random().toString(36).slice(2)}`
+          say(`Found ${describe(dev)}<br>${p.note ? p.note + ' ' : ''}It has ${p.choices.length} builds for it. Pick one:<div class="choices">${p.choices.map((c, i) => `<label><input type="radio" name="${group}" value="${i}"${i ? '' : ' checked'} /> <span class="mono">${esc(c.label)}</span></label>`).join('')}</div>Keep it plugged in until it says done.`, 'ok')
+          for (const r of st.querySelectorAll('input[type=radio]')) r.onchange = () => ready && (ready.pkg = p.choices[+r.value])
+        } else {
           ready = { dev, pkg: p.pkg }
           const same = !dev.ota && dev.text === p.pkg.product
-          say(`Found ${describe(dev)}<br>Ready to write <b>${esc(p.pkg.label)}</b>${same ? ' (it already runs this: installing again is fine)' : ''}. Keep it plugged in until it says done.`, 'ok')
+          say(`Found ${describe(dev)}<br>${p.note ? p.note + ' ' : ''}Ready to write <b>${esc(p.pkg.label)}</b>${same ? ' (it already runs this: installing again is fine)' : ''}. Keep it plugged in until it says done.`, 'ok')
+        }
+        if (ready) {
           go.textContent = `${verb} on this ${deviceName(dev.model)}`
           go.disabled = false
           next(go)

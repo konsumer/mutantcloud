@@ -158,9 +158,19 @@ function files(e) {
   return (e.release?.assets || []).filter((a) => /^https?:/.test(a.url) && !a.missing && !a.invalid)
 }
 
+// installable packages in a version (release or prerelease)
+const packages = (r) => (r?.assets || []).filter((a) => /^https?:/.test(a.url) && !a.missing && !a.invalid && isPackage(a))
+
+// the card's Install: the maker's own installer when they link one, else ours (it asks the device, then picks)
+function installIt(e) {
+  const own = e.links.find((l) => /^install/i.test(l.label))
+  if (own) return { label: 'Install', url: own.url }
+  if (packages(e.release).length || packages(e.prerelease).length) return { label: 'Install', href: `#/install/${e.id}`, title: 'Write the latest to your device over USB, from this page' }
+  return null
+}
+
+// how to get the files (or, without any, where to look)
 function getIt(e) {
-  const install = e.links.find((l) => /^install/i.test(l.label))
-  if (install) return { label: 'Install', url: install.url }
   const f = files(e)
   if (f.length === 1) return { label: 'Download', url: f[0].url }
   if (f.length > 1) return { label: `Files (${f.length})`, detail: true }
@@ -242,14 +252,15 @@ function cardButtons(e) {
     out.push(b)
   }
   if (e.homepage) add({ label: 'Website', url: e.homepage })
+  add(installIt(e))
   add(getIt(e))
   const t = tryIt(e)
-  if (emuFor(e)) add({ label: 'Try', href: `#/try/${e.id}` })
+  if (emuFor(e)) add({ label: 'Try', href: `#/try/${e.id}`, icon: '▶ ', title: 'Play it in your browser, in the FM-1 emulator' })
   else if (t) add({ label: 'Try it', url: t.url })
   if (e.repo) add({ label: 'Source', url: ghUrl(e) })
   return out.map((b, i) => {
     const cls = i === 0 ? 'btn small primary' : b.label === 'Source' ? 'btn small ghost' : 'btn small'
-    if (b.href) return `<a class="${cls}" href="${esc(b.href)}" title="Play it in your browser, in the FM-1 emulator">▶ ${esc(b.label)}</a>`
+    if (b.href) return `<a class="${cls}" href="${esc(b.href)}" title="${esc(b.title || '')}">${b.icon || ''}${esc(b.label)}</a>`
     return b.detail ? `<a class="${cls}" href="#/p/${esc(e.id)}">${esc(b.label)}</a>` : ext(b.url, b.label, cls)
   })
 }
@@ -482,7 +493,7 @@ function detail(e) {
     <p class="by">by ${authorLink(e)}${e.authorUrl ? ` · <a href="${safe(e.authorUrl)}" target="_blank" rel="noopener">${e.github ? 'GitHub' : 'website'} ↗</a>` : ''}</p>
     ${e.cover ? `<div class="shots"><img class="shot${e.coverIsScreen ? ' screen' : ''}" src="${safe(e.cover)}" ${fallback(e)} alt="" loading="lazy" onerror="picFail(this)" /></div>` : ''}
     ${e.description ? `<p class="lead">${esc(e.description)}</p>` : ''}
-    <div class="actions">${emuFor(e) ? `<a class="btn primary" href="#/try/${esc(e.id)}">▶ Try it in your browser</a>` : ''}${links.map((l, i) => ext(l.url, l.label, i === 0 && !emuFor(e) ? 'btn primary' : 'btn')).join('')}<button type="button" class="btn ghost" data-copy="${esc(pageUrl(e))}" title="Its own page: shows its picture when you share it">Copy link</button></div>
+    <div class="actions">${emuFor(e) ? `<a class="btn primary" href="#/try/${esc(e.id)}">▶ Try it in your browser</a>` : ''}${installIt(e)?.href ? `<a class="btn" href="${esc(installIt(e).href)}" title="${esc(installIt(e).title)}">Install the latest</a>` : ''}${links.map((l, i) => ext(l.url, l.label, i === 0 && !emuFor(e) ? 'btn primary' : 'btn')).join('')}<button type="button" class="btn ghost" data-copy="${esc(pageUrl(e))}" title="Its own page: shows its picture when you share it">Copy link</button></div>
     ${f.length ? `<h3>Files${e.release?.version ? ` <span class="mono by">${esc(e.release.version)}</span>` : ''}</h3>${fileList(f, e)}` : ''}
     <div id="history"></div>
     <dl class="facts">
@@ -526,6 +537,65 @@ function detail(e) {
 
 // a version's files; a package for a known device gets an Install button (#/install/<id>/<file>)
 const fileList = (f, e) => `<ul class="files">${f.map((a) => `<li><a href="${safe(a.url)}">${esc(a.name)}</a><span class="fmeta"><span class="mono">${a.product ? `${esc(a.product)} · ` : ''}${fmtSize(a.size)}</span>${e && isPackage(a) && !a.missing && !a.invalid ? `<a class="btn small" href="#/install/${esc(e.id)}/${esc(encodeURIComponent(a.name))}" title="Write it to your ${esc(deviceName(a.product))} over USB, from this page">Install</a>` : ''}</span></li>`).join('')}</ul>`
+
+// installing the latest from the card: the device is asked what it is, and that model's file is picked from the
+// latest release (its prerelease when only that has one). Several (old and new builds side by side: the one named
+// with the version; variants: the person picks) or none (said plainly, nothing written)
+// the latest builds that fit a device (dev from flash.js detect): { pkg }, { choices }, or { problem }
+function latestPick(e, dev) {
+  const rel = packages(e.release),
+    pre = packages(e.prerelease)
+  const fits = (list) => list.filter((a) => !checkFor(dev, a.product))
+  let r = e.release,
+    list = fits(rel)
+  if (!list.length) {
+    r = e.prerelease
+    list = fits(pre)
+  }
+  if (!list.length) {
+    const has = deviceModels([...rel, ...pre])
+    return { problem: `${esc(e.name)} has no build for the ${esc(deviceName(dev.model))}${has.length ? ` (only the ${has.map(esc).join(', ')})` : ''}. Nothing will be written.` }
+  }
+  // old and new builds side by side: the ones named with the version ("v3.3.2": 3.3.2; "v0.3.1-smk37.3": 0.3.1 too)
+  const v = String(r?.version || '').replace(/^v(?=\d)/i, '')
+  for (const want of [v, v.split('-')[0]]) {
+    const hit = want ? list.filter((a) => a.name.includes(want)) : []
+    if (hit.length) {
+      list = hit
+      break
+    }
+  }
+  // (the same file twice, under two names: one)
+  list = list.filter((a, i) => !a.sha256 || list.findIndex((b) => b.sha256 === a.sha256) === i)
+  const pkgOf = (a) => ({ url: `/dl/${e.id}/${encodeURIComponent(a.name)}`, sha256: a.sha256, product: a.product, label: `${a.name} (${a.product}${r === e.prerelease ? ', pre-release' : ''})` })
+  const note = r === e.prerelease ? `Its ${esc(deviceName(dev.model))} build is in a pre-release (<span class="mono">${esc(r.version)}</span>).` : ''
+  return list.length === 1 ? { pkg: pkgOf(list[0]), note } : { choices: list.map(pkgOf), note }
+}
+const MODEL_ORDER = ['FM1', 'SMK-37 Pro', 'SMK-37 Elite', 'MKE-P37']
+const deviceModels = (list) => [...new Set(list.map((a) => deviceName(a.product)))].sort((x, y) => MODEL_ORDER.indexOf(x) - MODEL_ORDER.indexOf(y))
+
+// installing the latest (the card's Install): the device is asked what it is, and latestPick says what goes on it
+function latestSheet(e) {
+  if (!e) return detail(e)
+  const rel = packages(e.release),
+    pre = packages(e.prerelease)
+  if (!rel.length && !pre.length) return detail(e)
+  const preOnly = deviceModels(pre).filter((m) => !deviceModels(rel).includes(m))
+  open(
+    `<h2 id="dlg-title">Install ${esc(e.name)}</h2>
+    <p class="by">The latest: <span class="mono">${esc(e.release?.version || e.prerelease?.version || '')}</span>${rel.length ? `, for the ${deviceModels(rel).map(esc).join(', ')}` : ''}${preOnly.length ? `${rel.length ? '; ' : ', '}pre-release <span class="mono">${esc(e.prerelease.version)}</span> for the ${preOnly.map(esc).join(', ')}` : ''}</p>
+    <ol class="steps">
+      <li>Connect the device to this computer with a USB data cable, and switch it on.</li>
+      <li>Press <b>Find my device</b>, and allow MIDI when the browser asks. It picks the build for the model it finds: nothing is written to the wrong one.</li>
+      <li>Press <b>Install</b>. It takes a minute or two: keep it plugged in until it says done.</li>
+    </ol>
+    <div id="flasher"></div>
+    <p class="note muted">Chrome or Edge on a computer. If it gets cut off, the device waits in update mode: install again, or use the <a href="/rescue">rescue page</a>, which also puts M-VAVE's stock firmware back. Want a particular file or an older version? <a href="#/p/${esc(e.id)}">See all its files</a>. Installing other firmware is at your own risk.</p>
+    <div class="actions"><a class="btn ghost" href="#/p/${esc(e.id)}">Back to ${esc(e.name)}</a></div>`,
+    hue(e.id)
+  )
+  mountFlasher($('#flasher'), { pick: (dev) => latestPick(e, dev) })
+}
 
 // installing one file from the browser (flash.js): the device is asked what it is first, and a package for another
 // model is never written (the same release's file for that model is offered instead)
@@ -1090,6 +1160,7 @@ function route() {
   // never swap the sheet out from under a firmware being written
   if (isBusy()) return
   if ((m = h.match(/^#\/install\/([a-z0-9-]+)\/(.+)$/))) return installSheet(find(m[1]), decodeURIComponent(m[2]))
+  if ((m = h.match(/^#\/install\/([a-z0-9-]+)\/?$/))) return latestSheet(find(m[1]))
   if ((m = h.match(/^#\/p\/([a-z0-9-]+)/))) detail(find(m[1]))
   else if ((m = h.match(/^#\/edit\/([a-z0-9-]+)/))) form(find(m[1]))
   else if ((m = h.match(/^#\/versions\/([a-z0-9-]+)/))) versionsSheet(find(m[1]))
