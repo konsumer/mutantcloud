@@ -456,7 +456,12 @@ function detail(e) {
   if (!e) return open('<h2 id="dlg-title">Not found</h2><p>That entry is gone or hidden.</p>')
   const f = files(e)
   const links = [...(e.homepage ? [{ label: 'Website', url: e.homepage }] : []), ...e.links, ...(e.repo ? [{ label: 'GitHub', url: ghUrl(e) }] : [])]
-  const sources = { firmwarehub: 'The Firmware Hub', fmdb: 'FMDB', 'fm1-editor': 'FM1 Editor', user: 'mutant.cloud' }
+  const sources = {
+    firmwarehub: ['The Firmware Hub', 'https://thefirmwarehub.com/'],
+    fmdb: ['FMDB', 'https://stanleygurvich.github.io/FMDB_FM1_FirmwareDatabase/'],
+    'fm1-editor': ['FM1 Editor', 'https://fm1-editor.com/firmware/']
+  }
+  const also = (e.sources || []).filter((s) => sources[s])
   const next = encodeURIComponent(location.pathname + location.search + location.hash)
   let note = e.locked ? `<p class="note">🔒 Locked by the admins: its makers can't change it right now.${ME.user?.admin ? ' (You can, as an admin.)' : ''}</p>` : ''
   if (canEdit(e)) note += `<div class="formbar"><a class="btn" href="#/versions/${esc(e.id)}">Versions</a><a class="btn primary" href="#/edit/${esc(e.id)}">Edit listing</a></div>`
@@ -497,7 +502,7 @@ function detail(e) {
       ${e.updated ? `<dt>Last activity</dt><dd>${fmtDate(e.updated)} <span class="by">(${when(e.updated)})</span></dd>` : ''}
       ${!e.repo && e.listedBy ? `<dt>Listed by</dt><dd><a href="https://github.com/${esc(e.listedBy)}" target="_blank" rel="noopener">@${esc(e.listedBy)}</a></dd>` : ''}
       ${e.managers.length ? `<dt>Managed by</dt><dd>${e.managers.map((m) => `<a href="https://github.com/${esc(m)}" target="_blank" rel="noopener">${esc(m)}</a>`).join(', ')}</dd>` : ''}
-      ${e.sources?.length ? `<dt>Also on</dt><dd>${e.sources.map((s) => esc(sources[s] || s)).join(', ')}</dd>` : ''}
+      ${also.length ? `<dt>Also on</dt><dd>${also.map((s) => `<a href="${sources[s][1]}" target="_blank" rel="noopener">${esc(sources[s][0])} ↗</a>`).join(', ')}</dd>` : ''}
       <dt>JSON</dt><dd><a href="/api/entries/${esc(e.id)}" class="mono">/api/entries/${esc(e.id)}</a></dd>
       <dt>Something wrong?</dt><dd><a href="${safe(reportUrl(e))}" target="_blank" rel="noopener">Report a problem with this listing ↗</a></dd>
     </dl>
