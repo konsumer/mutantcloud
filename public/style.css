@@ -1410,3 +1410,10 @@ main.page {
     padding: 18px 16px;
   }
 }
+
+/* the header's Rescue link: rescuing needs a computer (it's in the footer too), and phones haven't the room */
+@media (max-width: 480px) {
+  .nav .rescue {
+    display: none;
+  }
+}
