@@ -61,11 +61,10 @@
           <li>Some firmwares don't take the update command. Go back to stock once from their own menu or updater, or use the boot ROM (below).</li>
         </ul>
         <h3>The boot ROM: the last resort</h3>
-        <p>The chip (JieLi WL82) has a boot loader in its ROM that no firmware can break, so these devices can always be recovered. It shows up on the computer as a <b>USB disk</b>, and browsers aren't allowed to talk to USB disks (WebUSB blocks them, on purpose), so this page can't reach it. These can:</p>
+        <p>The chip (JieLi WL82) has a boot loader in its ROM that no firmware can break, so these devices can always be recovered. A browser can't reach it (it shows up as a USB disk, which web pages aren't allowed to talk to), but these small ESP32-S3 boards can. Each plugs into the device's USB port and needs no computer:</p>
         <ul>
-          <li><a href="https://konsumer.js.org/lilfm1buddy/" target="_blank" rel="noopener">lilfm1buddy</a>: a tiny ESP32-S3 board that plugs into the device's USB port. It gets in through the boot ROM, backs up and restores the whole firmware, and installs stock or anything else, with no computer. It never touches the flash's head, so it can't make things worse.</li>
-          <li><a href="https://github.com/charlesvestal/fm1-x0x/blob/main/tools/fm1_rescue.sh" target="_blank" rel="noopener">fm1_rescue.sh</a> (macOS): puts the FM1's official firmware back through the boot ROM.</li>
-          <li><a href="https://github.com/kurogedelic/FM-1-transporter" target="_blank" rel="noopener">FM-1-transporter</a>: the boot ROM protocol and tools behind all of these.</li>
+          <li><a href="https://konsumer.js.org/lilfm1buddy/" target="_blank" rel="noopener">lilfm1buddy</a>: a tiny board with no screen of its own. Press its button, then pick stock, another firmware or a backup on the device's own screen. Backs up and restores the whole firmware. FM1 and SMK-37.</li>
+          <li><a href="https://github.com/konsumer/fm1buddy" target="_blank" rel="noopener">fm1buddy</a>: a touchscreen board that switches firmware (from its SD card, or over Wi-Fi from mutant.cloud), makes backups, and has FM1 Recover for an FM1 that won't start. Also a MIDI hub, recorder and controller.</li>
         </ul>
       </section>
     </main>
