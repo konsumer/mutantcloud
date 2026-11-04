@@ -727,7 +727,7 @@ function mine() {
         <span class="actions"><a class="btn small" href="#/p/${esc(e.id)}">View</a>${canEdit(e) ? `<a class="btn small primary" href="#/edit/${esc(e.id)}">Edit</a>` : ''}</span></li>`
       )
       .join('')}</ul>
-    <div class="formbar"><button class="btn" type="button" id="logout">Sign out</button><a class="btn primary" href="#/new">+ Add a project</a></div>`
+    <div class="formbar"><button class="btn" type="button" id="logout">Sign out</button>${ME.user.admin ? '<a class="btn" href="#/admin">Activity</a>' : ''}<a class="btn primary" href="#/new">+ Add a project</a></div>`
   )
   $('#logout').onclick = async () => {
     await api('/auth/logout', { method: 'POST' })
@@ -735,6 +735,78 @@ function mine() {
     account()
     dlg.close()
   }
+}
+
+// --- admin activity -------------------------------------------------------
+
+async function activitySheet() {
+  if (!ME.user?.admin) return ME.user ? mine() : signInSheet('Admins only.')
+  open('<h2 id="dlg-title">Activity</h2><p class="by">Loading…</p>')
+  dlg.classList.add('wide')
+  let a
+  try {
+    a = await api('/api/admin/activity')
+  } catch (err) {
+    return open(`<h2 id="dlg-title">Activity</h2><p class="note">${esc(err.message)}</p>`)
+  }
+  if (location.hash !== '#/admin') return
+  const name = (id) => find(id)?.name || id
+  const item = (id) => `<a href="#/p/${esc(id)}">${esc(name(id))}</a>`
+  const gh = (login) => (login.startsWith('action:') ? `${esc(login.slice(7))} <small class="by">(CI)</small>` : `<a href="https://github.com/${esc(login)}" target="_blank" rel="noopener">${esc(login)}</a>`)
+  const ago = (d) => (d ? `<span title="${esc(d)}">${when(d)}</span>` : '<span class="by">never</span>')
+  const table = (head, rows) => `<div class="tbl"><table><thead><tr>${head.map((h) => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`
+
+  // releases by maker (their name on the listing)
+  const makers = {}
+  for (const r of a.releases) {
+    const e = find(r.entry)
+    if (!e) continue
+    const k = authorKey(e)
+    const m = (makers[k] ||= { name: e.author, key: k, listings: 0, month: 0, week: 0, last: '' })
+    m.listings++
+    m.month += r.month
+    m.week += r.week
+    if (r.last > m.last) m.last = r.last
+  }
+  const topMakers = Object.values(makers)
+    .filter((m) => m.month)
+    .sort((x, y) => y.month - x.month)
+    .slice(0, 25)
+  const n = (k) => a.releases.filter((r) => r[k] > 0).length
+
+  open(
+    `<h2 id="dlg-title">Activity</h2>
+    <p class="by">Only admins can see this. Sign-ins are recorded since Nov 3, 2026.</p>
+    <p>Of ${DATA.entries.length} listings, <b>${n('week')}</b> had a release in the last week, <b>${n('month')}</b> in the last 30 days and <b>${a.releases.length}</b> in the last 90.</p>
+
+    <h3>People</h3>
+    ${table(
+      ['Who', 'Sign-ins', 'Last sign-in', 'Edits', 'Last edit', 'Listings'],
+      a.people.map((p) => `<tr><td>${gh(p.login)}</td><td>${p.logins}</td><td>${ago(p.lastLogin)}</td><td>${p.edits}</td><td>${ago(p.lastEdit)}</td><td>${p.entries.map(item).join(', ')}</td></tr>`)
+    )}
+
+    <h3>Most active makers <small class="by">releases, last 30 days</small></h3>
+    ${table(
+      ['Maker', '30 days', '7 days', 'Listings', 'Last release'],
+      topMakers.map((m) => `<tr><td><a data-f href="${esc(query({ ...DEFAULTS, kind: 'all', device: 'all', author: m.key }))}">${esc(m.name)}</a></td><td>${m.month}</td><td>${m.week}</td><td>${m.listings}</td><td>${ago(m.last)}</td></tr>`)
+    )}
+
+    <h3>Most active listings <small class="by">releases, last 30 days</small></h3>
+    ${table(
+      ['Listing', '30 days', '7 days', 'Last release'],
+      a.releases
+        .filter((r) => r.month)
+        .slice(0, 25)
+        .map((r) => `<tr><td>${item(r.entry)}</td><td>${r.month}</td><td>${r.week}</td><td>${ago(r.last)}</td></tr>`)
+    )}
+
+    <h3>Recent edits</h3>
+    ${table(
+      ['When', 'Who', 'What', 'Listing'],
+      a.recent.map((r) => `<tr><td>${ago(r.at)}</td><td>${gh(r.login)}</td><td>${esc(r.action)}</td><td>${item(r.entry)}</td></tr>`)
+    )}`
+  )
+  dlg.classList.add('wide')
 }
 
 // --- edit form ------------------------------------------------------------
@@ -975,6 +1047,7 @@ function route() {
   else if ((m = h.match(/^#\/versions\/([a-z0-9-]+)/))) versionsSheet(find(m[1]))
   else if (h === '#/new') form(null)
   else if (h === '#/mine') mine()
+  else if (h === '#/admin') activitySheet()
   else if (h === '#/make') makeSheet()
   else if ((m = h.match(/^#\/try\/([a-z0-9-]+)(?:\/(fm1|smk37))?/))) trySheet(find(m[1]), m[2])
   else if (listingPath() && find(listingPath())) detail(find(listingPath()))

@@ -1134,6 +1134,33 @@ form.edit {
   white-space: nowrap;
 }
 
+/* admin activity */
+
+.tbl {
+  margin: 8px 0 18px;
+  overflow-x: auto;
+}
+
+.tbl table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.tbl th,
+.tbl td {
+  padding: 6px 10px 6px 0;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.tbl th {
+  color: var(--muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 /* footer */
 
 .foot {

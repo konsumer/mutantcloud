@@ -94,6 +94,13 @@ async function route(request, env, ctx, url) {
     return json(result)
   }
 
+  // admins: who signs in and edits, and which listings release most
+  if (pathname === '/api/admin/activity' && method === 'GET') {
+    const user = await requireUser(request, env)
+    if (!isAdmin(user, admins(env))) throw new HttpError(403, 'admins only')
+    return activity(env)
+  }
+
   if (pathname === '/api/entries' && method === 'POST') return create(request, env, ctx)
 
   const r = pathname.match(/^\/api\/entries\/([a-z0-9-]+)\/releases(?:\/(.+))?$/)
@@ -607,6 +614,8 @@ async function callback(request, env, url) {
   }
   const sid = randomId()
   await env.SESSIONS.put(`s:${sid}`, JSON.stringify(user), { expirationTtl: SESSION_TTL })
+  // sign-ins go in the audit log too (no listing), so admins can see who's active
+  await audit(env, '', gh.login, 'login')
   const headers = new Headers({ location: next || '/' })
   headers.append('set-cookie', setCookie(SESSION_COOKIE, sid, SESSION_TTL, env))
   headers.append('set-cookie', setCookie(STATE_COOKIE, '', 0, env))
@@ -1044,6 +1053,30 @@ async function publish(request, env) {
   await purge(request, env)
   const e = effective(await loadRow(env, row.id))
   return json({ ok: true, created, id: row.id, url: `${new URL(request.url).origin}/#/p/${row.id}`, release: e.release || null, versions: e.versions || 0 }, created ? 201 : 200)
+}
+
+// --- admin activity --------------------------------------------------------
+
+async function activity(env) {
+  const [people, recent, releases] = await env.DB.batch([
+    env.DB.prepare(`SELECT login, SUM(action = 'login') logins, MAX(CASE WHEN action = 'login' THEN at END) lastLogin,
+      SUM(action != 'login') edits, MAX(CASE WHEN action != 'login' THEN at END) lastEdit,
+      json_group_array(DISTINCT CASE WHEN entry != '' THEN entry END) entries
+      FROM audit GROUP BY login ORDER BY MAX(at) DESC`),
+    env.DB.prepare(`SELECT entry, login, action, at FROM audit WHERE action != 'login' ORDER BY n DESC LIMIT 40`),
+    env.DB.prepare(`SELECT r.entry, SUM(r.date >= date('now', '-7 day')) week, SUM(r.date >= date('now', '-30 day')) month,
+      COUNT(*) quarter, MAX(r.date) last FROM releases r JOIN entries e ON e.id = r.entry
+      WHERE e.hidden = 0 AND r.date >= date('now', '-90 day') GROUP BY r.entry ORDER BY month DESC, last DESC`)
+  ])
+  return json(
+    {
+      people: people.results.map((p) => ({ ...p, entries: JSON.parse(p.entries).filter(Boolean) })),
+      recent: recent.results,
+      releases: releases.results
+    },
+    200,
+    { 'cache-control': 'no-store' }
+  )
 }
 
 // --- release watcher (cron) -----------------------------------------------
