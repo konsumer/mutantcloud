@@ -41,6 +41,22 @@ const TIPS = `<ul class="tips">
   <li>Chrome or Edge on a computer (not a phone or iPad).</li>
 </ul>`
 
+// fm1ota only asks ports with the names it knows (FM-1, SMK, Felucca, ...). Firmwares name their own (fomajam's is
+// FOMAJAM), so when none of those answers, every port is asked (other gear ignores the identity question)
+class HubUpdater extends Updater {
+  async find(filter) {
+    const dev = await super.find(filter)
+    if (dev) return dev
+    const known = this.names
+    this.names = [...this.access.inputs.values()].map((p) => (p.name || '').toLowerCase()).filter(Boolean)
+    try {
+      return await super.find(filter)
+    } finally {
+      this.names = known
+    }
+  }
+}
+
 let busy = false
 export const isBusy = () => busy
 addEventListener('beforeunload', (e) => {
@@ -62,13 +78,13 @@ async function midi() {
 // what's plugged in: { text: 'FM-1_015', model: 'FM-1', ota: in update mode (an install was cut off), rescue:
 // fomajam's USB rescue } or null
 export async function detect(log) {
-  const dev = await new Updater(await midi(), log).find()
+  const dev = await new HubUpdater(await midi(), log).find()
   if (!dev) return null
   dev.link.close()
   return { text: dev.id.text, model: modelOf(dev.id.model), ota: /^ota-/i.test(dev.id.model), rescue: /_000$/.test(dev.id.text), port: dev.name }
 }
 
-export const describe = (dev) => (dev.ota ? `a ${esc(deviceName(dev.model))} in update mode: an install didn't finish. Installing now finishes it.` : dev.rescue ? `a ${esc(deviceName(dev.model))} in its USB rescue mode.` : `a ${esc(deviceName(dev.model))}, running <span class="mono">${esc(dev.text)}</span>.`)
+export const describe = (dev) => (dev.ota ? `an ${esc(deviceName(dev.model))} in update mode: an install didn't finish. Installing now finishes it.` : dev.rescue ? `an ${esc(deviceName(dev.model))} in its USB rescue mode.` : `an ${esc(deviceName(dev.model))}, running <span class="mono">${esc(dev.text)}</span>.`)
 
 const hex = async (raw) => [...new Uint8Array(await crypto.subtle.digest('SHA-256', raw))].map((b) => b.toString(16).padStart(2, '0')).join('')
 
@@ -172,7 +188,7 @@ export function mountFlasher(el, { pick, verb = 'Install', intro = '' }) {
       if (!dev) throw Object.assign(new Error(''), { code: 'notfound' })
       const bad = checkFor(dev, product)
       if (bad) throw new Error(bad.replace(/<[^>]+>/g, ''))
-      const up = new Updater(await midi(), log)
+      const up = new HubUpdater(await midi(), log)
       const image = logicalImage(raw)
       const total = 74 + Math.ceil(image.length / 512)
       const step = (k, a) => {
