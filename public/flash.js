@@ -97,7 +97,7 @@ export function checkFor(dev, product) {
 export function mountFlasher(el, { pick, verb = 'Install', intro = '' }) {
   el.innerHTML = `<div class="flasher">
     ${intro}
-    <div class="row"><button type="button" class="btn" data-find>Find my device</button><button type="button" class="btn primary" data-go disabled>${esc(verb)}</button></div>
+    <div class="row"><button type="button" class="btn primary" data-find>Find my device</button><button type="button" class="btn" data-go disabled>${esc(verb)}</button></div>
     <div class="fl-status" role="status"></div>
     <progress max="100" value="0" hidden></progress>
     <details class="fl-log" hidden><summary>Details</summary><pre class="code"></pre></details>
@@ -121,11 +121,16 @@ export function mountFlasher(el, { pick, verb = 'Install', intro = '' }) {
     find.disabled = b
   }
   let ready = null
+  const next = (b) => {
+    find.classList.toggle('primary', b === find)
+    go.classList.toggle('primary', b === go)
+  }
 
   find.onclick = async () => {
     ready = null
     go.disabled = true
     go.textContent = verb
+    next(find)
     lock(true)
     say('Looking for it…')
     try {
@@ -141,6 +146,7 @@ export function mountFlasher(el, { pick, verb = 'Install', intro = '' }) {
           say(`Found ${describe(dev)}<br>Ready to write <b>${esc(p.pkg.label)}</b>${same ? ' (it already runs this: installing again is fine)' : ''}. Keep it plugged in until it says done.`, 'ok')
           go.textContent = `${verb} on this ${deviceName(dev.model)}`
           go.disabled = false
+          next(go)
         }
       }
     } catch (e) {
@@ -154,6 +160,7 @@ export function mountFlasher(el, { pick, verb = 'Install', intro = '' }) {
     const { pkg } = ready
     ready = null
     go.disabled = true
+    next(find)
     lock(true)
     bar.hidden = false
     bar.value = 0
