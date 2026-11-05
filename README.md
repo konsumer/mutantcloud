@@ -47,6 +47,7 @@ every version ever seen ─▶ D1 releases table (links to the makers' files)
 - There are no stars or download counts. Links go straight to the maker's files, so there's nothing reliable to count.
 - Every entry has `added` (first seen anywhere) and `updated` (last release or commit), and every version has its own date, so people can judge how fresh or beta something is.
 - `src/worker.js` is one Cloudflare Worker: API, GitHub OAuth, the OIDC publish endpoint, and static files from `public/`.
+- The site's own page is served by the worker with the whole list inlined (a `<script type="application/json" id="fw">`), so a first visit needs one response, not a second request for `/firmware.json`; `public/app.js` reads it and fills the grid a screenful at a time as you scroll. `/sitemap.xml` (linked from `/robots.txt`) lists every listing's page for search engines.
 - `src/entry.js` holds the data model (devices, tags, bases, validation, permissions), shared by the worker and the collector.
 
 ### Tags
@@ -130,6 +131,7 @@ Not on GitHub? Sign in and add versions by hand on the site (open your entry, th
 | GET    | `/firmware.json`                     | anyone              | everything (cached 5 min, ETag); filters: `device`, `kind`, `tag`, `author`, `base`, `q`                            |
 | GET    | `/catalog.json`                      | anyone              | The Firmware Hub format: `firmwares[]` (`pkg` is a direct URL) + `stock`; same filters                              |
 | GET    | `/feed.xml`                          | anyone              | RSS 2.0 timeline of new listings and versions (50 newest, ETag); same filters, `kind` defaults to `firmware`        |
+| GET    | `/sitemap.xml`                       | anyone              | every listing's own page (`/<id>`), for search engines; `/robots.txt` points at it                                  |
 | GET    | `/api/entries/:id`                   | anyone              | one entry plus `history` (all versions)                                                                             |
 | GET    | `/dl/:id/:file`                      | anyone              | a package one of the listing's versions names, with CORS on, for browser apps (GitHub's downloads have no CORS)     |
 | GET    | `/api/entries/:id/releases`          | anyone              | version history                                                                                                     |

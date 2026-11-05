@@ -62,6 +62,13 @@ async function route(request, env, ctx, url) {
     return feed(request, env, ctx, url)
   }
 
+  // the site itself, with the whole list inlined in its HTML: the first load paints from one response, with no
+  // second request (or round trip) for /firmware.json
+  if ((pathname === '/' || pathname === '/index.html') && method === 'GET') return homePage(request, env, ctx, url)
+
+  // what search engines read: every listing's own page
+  if (pathname === '/sitemap.xml' && (method === 'GET' || method === 'HEAD')) return sitemap(request, env, ctx, url)
+
   if (pathname === '/auth/login') return login(request, env, url)
   if (pathname === '/auth/callback') return callback(request, env, url)
   if (pathname === '/auth/logout') {
@@ -295,6 +302,40 @@ async function listResponse(request, env, ctx, url) {
 // cached lists are keyed by the deployed version, so a deploy never serves a list the old code made
 const listKey = (origin, path, env) => new Request(`${origin}${path}?v=${env.CF_VERSION_METADATA?.id || 'dev'}`)
 const purge = (request, env) => Promise.all(LISTS.map((p) => caches.default.delete(listKey(new URL(request.url).origin, p, env))))
+
+// --- the site's own page: the list inlined in its HTML -----------------------
+// One response carries the page, its scripts and the records, so the first load needs no second request (and no
+// extra round trip) for /firmware.json: the front end reads <script id="fw"> instead of fetching it. A listing's
+// own page isn't inlined (its preview tags are what gets fetched there), so it takes the list from the API.
+
+async function homePage(request, env, ctx, url) {
+  const fw = new URL('/firmware.json', url.origin)
+  const [page, list] = await Promise.all([env.ASSETS.fetch(new Request(`${url.origin}/`)), listResponse(new Request(fw), env, ctx, fw)])
+  // a description could contain "</script>": the JSON escape keeps it inside the element (and reads the same)
+  const body = (await list.text()).replace(/<\//g, '<\\/')
+  return new HTMLRewriter().on('body', { element: (el) => el.append(`<script type="application/json" id="fw">${body}</script>`, { html: true }) }).transform(
+    new Response(page.body, {
+      headers: {
+        'content-type': 'text/html; charset=utf-8',
+        'cache-control': env.LOCAL ? 'no-store' : `public, max-age=${LIST_TTL}`
+      }
+    })
+  )
+}
+
+// --- /sitemap.xml: every listing's own page (what search engines crawl) ------
+
+async function sitemap(request, env, ctx, url) {
+  const fw = new URL('/firmware.json', url.origin)
+  const list = await (await listResponse(new Request(fw), env, ctx, fw)).json()
+  const rows = [{ loc: `${url.origin}/` }, { loc: `${url.origin}/feed.xml` }, ...list.entries.map((e) => ({ loc: `${url.origin}/${e.id}`, lastmod: e.updated }))]
+  const body = `<?xml version="1.0" encoding="utf-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${rows.map((r) => `  <url><loc>${r.loc}</loc>${r.lastmod ? `<lastmod>${r.lastmod.slice(0, 10)}</lastmod>` : ''}</url>`).join('\n')}
+</urlset>
+`
+  return new Response(body, { headers: { 'content-type': 'application/xml; charset=utf-8', 'cache-control': env.LOCAL ? 'no-store' : `public, max-age=${LIST_TTL}` } })
+}
 
 // --- /feed.xml: RSS 2.0 of new listings and versions --------------------------
 // A timeline: one item per version (pre-releases too) and per new listing, newest first. Same filters as

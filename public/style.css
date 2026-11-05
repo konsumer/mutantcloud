@@ -647,6 +647,12 @@ a.badge.tag:hover {
   color: var(--muted);
 }
 
+/* the infinite-scroll sentinel: no box of its own, just something to observe as it comes into range */
+.grid .more {
+  grid-column: 1 / -1;
+  height: 1px;
+}
+
 /* dialog */
 
 dialog {

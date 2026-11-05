@@ -224,7 +224,13 @@ async function loadEmulator() {
     EMUMAP = new Map()
   }
   if (DATA.entries.length) {
-    render()
+    // the cards already on screen were built before this list arrived: swap their buttons only (a Try, when
+    // the emulator can play it), so the grid doesn't jump back to the top
+    for (const el of document.querySelectorAll('#grid .card[data-id]')) {
+      const e = find(el.dataset.id)
+      const actions = el.querySelector('.actions')
+      if (e && actions) actions.innerHTML = cardButtons(e).join('')
+    }
     // an open "Try" link or detail sheet that arrived before the emulator's list: show it again, now with Try
     if (/^#\/(p|try)\//.test(location.hash) || listingPath()) route()
   }
@@ -311,7 +317,7 @@ function card(e) {
   const ver = e.release?.version ? `<span class="mono">${esc(e.release.version)}</span>` : ''
   const released = e.release?.date ? `Released ${when(e.release.date)}` : e.updated ? `Updated ${when(e.updated)}` : ''
   const pic = e.cover ? `<a class="pic${e.coverIsScreen ? ' screen' : ''}" href="#/p/${esc(e.id)}" tabindex="-1" aria-hidden="true" data-letter="${esc(e.name.slice(0, 1))}">${e.coverIsScreen ? '' : `<img class="bg" src="${safe(e.cover)}" alt="" loading="lazy" decoding="async" />`}<img class="fg" src="${safe(e.cover)}" ${fallback(e)} alt="" loading="lazy" decoding="async" onerror="picFail(this)" /></a>` : `<a class="pic none" href="#/p/${esc(e.id)}" tabindex="-1" aria-hidden="true"><span>${esc(e.name.slice(0, 1))}</span></a>`
-  return `<article class="card" style="--h:${hue(e.id)}">
+  return `<article class="card" data-id="${esc(e.id)}" style="--h:${hue(e.id)}">
     ${pic}
     <div class="head">
       <h3><a href="#/p/${esc(e.id)}">${esc(e.name)}</a></h3>
@@ -326,9 +332,47 @@ function card(e) {
   </article>`
 }
 
+// The grid fills in a screenful at a time as you scroll (infinite scroll): the first paint is 24 cards and
+// their pictures, not hundreds. The whole list is still filtered and sorted here; only the DOM is paged.
+const CHUNK = 24
+const EMPTY = '<p class="empty">Nothing matches. Know one that is missing? <a href="#/new">Add it</a>.</p>'
+const more = document.createElement('div')
+more.className = 'more'
+const io =
+  'IntersectionObserver' in window
+    ? new IntersectionObserver(
+        (rows) => {
+          if (rows.some((r) => r.isIntersecting)) grow()
+        },
+        { rootMargin: '1200px 0px' }
+      )
+    : null
+let VIEW = { list: [], shown: 0 }
+
+function grow() {
+  const next = VIEW.list.slice(VIEW.shown, VIEW.shown + CHUNK)
+  if (!next.length) return
+  VIEW.shown += next.length
+  more.insertAdjacentHTML('beforebegin', next.map(card).join(''))
+  if (!io) return
+  // re-arm: the observer fires straight away again if the sentinel is still in range, so a tall screen fills up
+  io.unobserve(more)
+  if (VIEW.shown < VIEW.list.length) io.observe(more)
+}
+
 function render() {
   const list = filtered()
-  $('#grid').innerHTML = list.length ? list.map(card).join('') : '<p class="empty">Nothing matches. Know one that is missing? <a href="#/new">Add it</a>.</p>'
+  VIEW = { list, shown: 0 }
+  const grid = $('#grid')
+  io?.unobserve(more)
+  grid.replaceChildren()
+  if (!list.length) {
+    grid.innerHTML = EMPTY
+  } else {
+    grid.append(more)
+    if (io) io.observe(more)
+    grow()
+  }
   summary(list)
   // (on a listing's own page the address stays as it is, so it can be shared)
   if (!listingPath()) history.replaceState(history.state, '', query(state) + location.hash)
@@ -1173,10 +1217,35 @@ function route() {
   else if (dlg.open) dlg.close()
 }
 
-loadEmulator()
+// the home page arrives with the whole list inlined (src/worker.js homePage), so the first load paints without a
+// second request; a listing's own page and later reloads (after an edit) fetch it instead, fresh
+let BOOT = null
+try {
+  const el = document.getElementById('fw')
+  if (el) {
+    BOOT = JSON.parse(el.textContent)
+    el.remove() // (the parsed list is what's used; don't keep the half-megabyte of text in the page)
+  }
+} catch {
+  BOOT = null
+}
+async function firmware() {
+  const boot = BOOT
+  BOOT = null
+  return boot || (await fetch('/firmware.json', { cache: 'no-store' })).json()
+}
 
 async function reload() {
-  const [data, me] = await Promise.all([fetch('/firmware.json', { cache: 'no-store' }).then((r) => r.json()), api('/api/me').catch(() => ({ user: null, manages: [] }))])
+  // the list is painted as soon as it arrives; who you are (the session) is a separate request that only
+  // changes the header, so it isn't allowed to hold up the grid
+  const meP = api('/api/me').catch(() => ({ user: null, manages: [] }))
+  const data = await firmware()
+  DATA = data
+  const makers = new Set(DATA.entries.map((e) => (e.github || e.author).toLowerCase()))
+  $('#stats').textContent = `${DATA.count} firmwares & tools from ${makers.size} makers. Self-serve: makers sign in with GitHub and keep their own listings up to date.`
+  controls()
+  render()
+  const me = await meP
   // the server ended a session whose GitHub token died: sign in again (once per tab, so it can't loop)
   if (me.relogin && !sessionStorage.getItem('relogin')) {
     sessionStorage.setItem('relogin', '1')
@@ -1184,13 +1253,8 @@ async function reload() {
     return
   }
   if (me.user) sessionStorage.removeItem('relogin')
-  DATA = data
   ME = me
-  const makers = new Set(DATA.entries.map((e) => (e.github || e.author).toLowerCase()))
-  $('#stats').textContent = `${DATA.count} firmwares & tools from ${makers.size} makers. Self-serve: makers sign in with GitHub and keep their own listings up to date.`
   account()
-  controls()
-  render()
 }
 
 let t
@@ -1208,8 +1272,13 @@ $('#sort').onchange = (ev) => {
 }
 window.addEventListener('hashchange', route)
 
+// the emulator's own lists (2 cross-origin requests) are only needed for a "Try" button, so they load when
+// the page is idle, after the list has painted, never on the first-load critical path
+const idle = (fn) => (window.requestIdleCallback ? requestIdleCallback(fn, { timeout: 3000 }) : setTimeout(fn, 200))
+
 reload()
   .then(route)
+  .then(() => idle(loadEmulator))
   .catch((err) => {
     $('#stats').textContent = 'Could not load the list. ' + err.message
   })
