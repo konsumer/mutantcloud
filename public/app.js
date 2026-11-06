@@ -354,16 +354,74 @@ const io =
     : null
 let VIEW = { list: [], shown: 0 }
 
+// the grid's column count, the height of an average row, and how tall the cards drawn so far are,
+// all measured off the DOM (the reservation must not be cleared to measure it: a page that briefly
+// collapses makes the browser clamp the scroll position, and it never moves back)
+function rowSize() {
+  const g = $('#grid')
+  const cards = [...g.querySelectorAll('.card')]
+  const box = g.getBoundingClientRect()
+  if (!cards.length) return { cols: 1, row: 0, drawn: 0 }
+  const gap = parseFloat(getComputedStyle(g).rowGap) || 0
+  const pad = parseFloat(getComputedStyle(g).paddingBottom) || 0
+  const lines = new Map()
+  let bottom = box.top
+  for (const c of cards) {
+    const b = c.getBoundingClientRect()
+    const t = Math.round(b.top - box.top)
+    if (!(lines.get(t) >= b.height)) lines.set(t, b.height) // the tallest card sets the row's height
+    if (b.bottom > bottom) bottom = b.bottom
+  }
+  let sum = 0
+  for (const h of lines.values()) sum += h
+  return { cols: Math.max(1, Math.round(cards.length / lines.size)), row: sum / lines.size + gap, drawn: bottom - box.top + pad }
+}
+
+// Hold the page's height at what the whole list will take, so the scrollbar stops growing a chunk at a time
+// as you scroll (and a thumb dragged down lands on cards, not on space that is still empty). The estimate
+// comes from the rows already drawn, is refined with each chunk, and is dropped once the list is all in.
+function reserve() {
+  const g = $('#grid')
+  const left = VIEW.list.length - VIEW.shown
+  if (left <= 0) {
+    g.style.minHeight = ''
+    return
+  }
+  const { cols, row, drawn } = rowSize()
+  if (row) g.style.minHeight = `${Math.ceil(drawn + Math.ceil(left / cols) * row)}px`
+}
+
 function grow() {
   const next = VIEW.list.slice(VIEW.shown, VIEW.shown + CHUNK)
   if (!next.length) return
   VIEW.shown += next.length
   more.insertAdjacentHTML('beforebegin', next.map(card).join(''))
+  reserve()
   if (!io) return
   // re-arm: the observer fires straight away again if the sentinel is still in range, so a tall screen fills up
   io.unobserve(more)
   if (VIEW.shown < VIEW.list.length) io.observe(more)
 }
+
+// A jump down the scrollbar can land past the drawn cards while the rest of the height is only reserved:
+// keep filling, a few chunks a frame, until the drawn cards reach the viewport again.
+let queued = 0
+function fill() {
+  if (queued) return
+  const step = () => {
+    queued = 0
+    for (let n = 0; n < 4 && VIEW.shown < VIEW.list.length && more.getBoundingClientRect().top < innerHeight + 1200; n++) grow()
+    if (VIEW.shown < VIEW.list.length && more.getBoundingClientRect().top < innerHeight + 1200) queued = requestAnimationFrame(step)
+  }
+  queued = requestAnimationFrame(step)
+}
+window.addEventListener('scroll', fill, { passive: true })
+// a resize changes how many cards a row holds, so the reservation has to be redone
+let resizeFrame = 0
+window.addEventListener('resize', () => {
+  cancelAnimationFrame(resizeFrame)
+  resizeFrame = requestAnimationFrame(reserve)
+})
 
 function render() {
   const list = filtered()
@@ -372,6 +430,7 @@ function render() {
   io?.unobserve(more)
   grid.replaceChildren()
   if (!list.length) {
+    grid.style.minHeight = ''
     grid.innerHTML = EMPTY
   } else {
     grid.append(more)

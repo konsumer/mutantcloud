@@ -47,7 +47,7 @@ every version ever seen ─▶ D1 releases table (links to the makers' files)
 - There are no stars or download counts. Links go straight to the maker's files, so there's nothing reliable to count.
 - Every entry has `added` (first seen anywhere) and `updated` (last release or commit), and every version has its own date, so people can judge how fresh or beta something is.
 - `src/worker.js` is one Cloudflare Worker: API, GitHub OAuth, the OIDC publish endpoint, and static files from `public/`.
-- The site's own page is served by the worker with the whole list inlined (a `<script type="application/json" id="fw">`), so a first visit needs one response, not a second request for `/firmware.json`; `public/app.js` reads it and fills the grid a screenful at a time as you scroll. `/sitemap.xml` (linked from `/robots.txt`) lists every listing's page for search engines.
+- The site's own page is served by the worker with the whole list inlined (a `<script type="application/json" id="fw">`), so a first visit needs one response, not a second request for `/firmware.json`; `public/app.js` reads it and fills the grid a screenful at a time as you scroll; the page's height is reserved for the whole list up front (an estimate from the rows already drawn) so the scrollbar doesn't grow a chunk at a time. `/sitemap.xml` (linked from `/robots.txt`) lists every listing's page for search engines.
 - `src/entry.js` holds the data model (devices, tags, bases, validation, permissions), shared by the worker and the collector.
 
 ### Tags

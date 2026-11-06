@@ -447,6 +447,7 @@ a.badge.tag:hover {
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr));
+  align-content: start; /* the reserved page height is empty space, not taller cards */
   gap: 14px;
   padding-bottom: 40px;
 }
