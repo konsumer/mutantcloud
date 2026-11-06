@@ -10,6 +10,11 @@ const ext = (u, label, cls = 'btn small') => `<a class="${cls}" href="${safe(u)}
 let DATA = { entries: [], devices: {}, kinds: {}, tags: {}, bases: {} }
 // a base's display name (bases the other hubs use but we don't know stay as they are)
 const baseName = (b) => DATA.bases[b]?.name || b
+// a base's own listing, which carries its current description (the collector keeps it fresh)
+const baseEntry = (b) => {
+  const repo = DATA.bases[b]?.repo?.toLowerCase()
+  return repo && DATA.entries.find((e) => e.repo && e.repo.toLowerCase() === repo)
+}
 let ME = { user: null, manages: [] }
 
 // the list's filters live in the URL, so any combination is a link:
@@ -729,9 +734,9 @@ function wireCopy() {
 function makeSheet() {
   const counts = {}
   for (const e of DATA.entries) if (e.base) counts[e.base] = (counts[e.base] || 0) + 1
-  // every starting point we know, most built-upon first (no favourites)
+  // every starting point we know, most built-upon first (no favourites), with its own listing's description
   const starters = Object.entries(DATA.bases)
-    .filter(([, b]) => b.repo && b.about)
+    .filter(([k]) => baseEntry(k)?.description)
     .sort(([a, x], [b, y]) => (counts[b] || 0) - (counts[a] || 0) || x.name.localeCompare(y.name))
   const next = encodeURIComponent('/#/new')
   const add = ME.user ? '<a class="btn primary" href="#/new">Add your firmware</a>' : `<a class="btn primary" href="/auth/login?next=${next}">Sign in with GitHub to add it</a>`
@@ -745,7 +750,7 @@ function makeSheet() {
       .map(
         ([k, b]) => `<li style="--h:${hue(k)}">
           <div><b>${esc(b.name)}</b> <span class="by">${esc(b.repo)}${b.license ? ` · ${esc(b.license)}` : ''}${counts[k] ? ` · ${counts[k]} listed ${counts[k] === 1 ? 'firmware' : 'firmwares'} built on it` : ''}</span></div>
-          <p>${esc(b.about)}</p>
+          <p>${esc(baseEntry(k).description)}</p>
           <span class="actions">${b.template ? ext(`https://github.com/${b.repo}/generate`, 'Use this template', 'btn small primary') : ext(`https://github.com/${b.repo}/fork`, 'Fork', 'btn small primary')}${ext(`https://github.com/${b.repo}`, 'Repo', 'btn small ghost')}</span>
         </li>`
       )

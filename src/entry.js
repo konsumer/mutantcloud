@@ -19,15 +19,15 @@ export const TAGS = {
 // firmware families (what it is built on): display name, and the repo that is the base.
 // Forks of the repo (GitHub "parent") and repos made from it as a template are detected as built on it.
 export const BASE_INFO = {
-  felucca: { name: 'Felucca', repo: 'hugelton/Felucca', license: 'GPL-3.0', about: "The custom firmware most others build on: the FM-1's synth engines, a sequencer, effects and a better panel. Fork it." },
-  dinghy: { name: 'Dinghy', repo: 'zvenson/dinghy', license: 'GPL-3.0', template: true, about: 'The smallest firmware to build your own on: updates, USB rescue, USB-MIDI, USB audio, panel, screen and settings done and documented, a sine on top.' },
-  fm1base: { name: 'fm1-base', repo: 'charlesvestal/fm1-base', license: 'MPL-2.0', template: true, about: 'A base and template on felucca-bsp: platform, host simulator, browser emulator, Bluetooth MIDI, WiFi, USB audio.' },
-  foma: { name: 'FOMA', repo: 'konsumer/foma', license: 'GPL-3.0', template: true, about: 'A template for making custom FM-1 firmware.' },
-  sloop: { name: 'SLOOP', repo: 'isod89/sloop-fm1', license: 'GPL-3.0', about: 'A live groovebox firmware. Fork it to make your own take.' },
-  melodee: { name: 'Melodee', repo: 'keremimo/melodee', license: 'GPL-3.0', about: 'A Felucca-based firmware many others fork.' },
+  felucca: { name: 'Felucca', repo: 'hugelton/Felucca', license: 'GPL-3.0' },
+  dinghy: { name: 'Dinghy', repo: 'zvenson/dinghy', license: 'GPL-3.0', template: true },
+  fm1base: { name: 'fm1-base', repo: 'charlesvestal/fm1-base', license: 'MPL-2.0', template: true },
+  foma: { name: 'FOMA', repo: 'konsumer/foma', license: 'GPL-3.0', template: true },
+  sloop: { name: 'SLOOP', repo: 'isod89/sloop-fm1', license: 'GPL-3.0' },
+  melodee: { name: 'Melodee', repo: 'keremimo/melodee', license: 'GPL-3.0' },
   fomni: { name: 'FoMni', repo: 'charlesvestal/fm1-fomni' },
   x0x: { name: 'X0X', repo: 'charlesvestal/fm1-x0x' },
-  stock: { name: 'M-VAVE stock', repo: 'm-vave/fm1_open', about: "M-VAVE's own open firmware and SDK." },
+  stock: { name: 'M-VAVE stock', repo: 'm-vave/fm1_open' },
   original: { name: 'its own code' }
 }
 export const BASES = Object.keys(BASE_INFO)
