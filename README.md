@@ -209,7 +209,7 @@ Mostly, it keeps itself up to date:
   - **Files in a repo at a fixed commit** can't change, so they're skipped.
     A replaced file gets its sha256 updated (so installers work again) and a dated note. A missing or invalid file gets a muted "Might not install right now" warning on its card and in its details. When a listing's newest version doesn't check out, the site shows the latest one that does and says why.
 - **Makers' CI publishes land instantly** (see "For makers" above), and makers can list themselves on the site.
-- **New listings from the other hubs:** run `npm run sync` now and then. It only adds firmware that isn't listed yet, asks GitHub about just those, and writes straight to the database, so no deploy is needed. It says what it skipped and why (for example, a repo listed already under its new GitHub name). `npm run sync -- --full` re-reads everything the old way; you should rarely need it.
+- **New listings from the other hubs and GitHub:** `.github/workflows/sync.yml` runs `npm run sync` every day (and from the Actions tab whenever you like, with **full** for `--full`). It needs a `CLOUDFLARE_API_TOKEN` repo secret that can edit D1; GitHub access uses the run's own token. `npm run sync` by hand does the same. It only adds firmware that isn't listed yet, asks GitHub about just those, and writes straight to the database, so no deploy is needed. It says what it skipped and why (for example, a repo listed already under its new GitHub name). `npm run sync -- --full` re-reads everything the old way; you should rarely need it.
 
 ```sh
 npm run deploy   # ship code changes: database migrations + the worker. No data collecting.
