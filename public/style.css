@@ -1438,12 +1438,3 @@ main.page {
   overflow-wrap: anywhere;
   cursor: pointer;
 }
-
-/* the admins' Found list (#/found): reason filters, then search + "dismiss all shown" */
-.found-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin: 10px 0;
-}

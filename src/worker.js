@@ -108,13 +108,6 @@ async function route(request, env, ctx, url) {
     return activity(env)
   }
 
-  // admins: what the collector found on GitHub but didn't list, to list or dismiss
-  if (pathname === '/api/admin/found' && (method === 'GET' || method === 'POST')) {
-    const user = await requireUser(request, env)
-    if (!isAdmin(user, admins(env))) throw new HttpError(403, 'admins only')
-    return method === 'GET' ? foundList(env) : foundAct(request, env, user)
-  }
-
   if (pathname === '/api/entries' && method === 'POST') return create(request, env, ctx)
 
   const r = pathname.match(/^\/api\/entries\/([a-z0-9-]+)\/releases(?:\/(.+))?$/)
@@ -1101,57 +1094,6 @@ async function publish(request, env) {
   await purge(request, env)
   const e = effective(await loadRow(env, row.id))
   return json({ ok: true, created, id: row.id, url: `${new URL(request.url).origin}/#/p/${row.id}`, release: e.release || null, versions: e.versions || 0 }, created ? 201 : 200)
-}
-
-// --- found on GitHub ---------------------------------------------------------
-
-async function foundList(env) {
-  const [open, dismissed] = await env.DB.batch([env.DB.prepare('SELECT repo, info, why, first, seen FROM found WHERE dismissed IS NULL AND repo NOT IN (SELECT repo FROM entries WHERE repo IS NOT NULL) ORDER BY first DESC'), env.DB.prepare('SELECT COUNT(*) n FROM found WHERE dismissed IS NOT NULL')])
-  return json({ found: open.results.map((r) => ({ ...r, info: JSON.parse(r.info) })), dismissed: dismissed.results[0].n }, 200, { 'cache-control': 'no-store' })
-}
-
-// { repo, action: 'list' | 'dismiss', kind? } or { repos, action: 'dismiss' }: list it (as the collector would: from GitHub, nobody manages it until
-// its owner signs in) or never show it again
-async function foundAct(request, env, user) {
-  const input = await body(request)
-  const now = new Date().toISOString()
-  // { repos: [...], action: 'dismiss' }: many at once (the page's "dismiss all shown")
-  if (input.action === 'dismiss' && Array.isArray(input.repos)) {
-    const repos = [...new Set(input.repos.map(repoKey).filter(Boolean))].slice(0, 1000)
-    await env.DB.batch(repos.map((r) => env.DB.prepare('UPDATE found SET dismissed = ? WHERE repo = ?').bind(`${now} ${user.login}`, r)))
-    return json({ ok: true, dismissed: repos.length })
-  }
-  const repo = repoKey(input.repo)
-  const row = repo && (await env.DB.prepare('SELECT info FROM found WHERE repo = ?').bind(repo).first())
-  if (!row) throw new HttpError(404, 'not in the found list')
-  if (input.action === 'dismiss') {
-    await env.DB.prepare('UPDATE found SET dismissed = ? WHERE repo = ?').bind(`${now} ${user.login}`, repo).run()
-    return json({ ok: true })
-  }
-  if (input.action !== 'list') throw new HttpError(400, 'action: list or dismiss')
-  const taken = await repoTaken(env, repo)
-  if (taken) {
-    await env.DB.prepare('DELETE FROM found WHERE repo = ?').bind(repo).run()
-    throw new HttpError(409, 'that repo is already listed', { id: taken })
-  }
-  const gh = await repoInfo(repo, user.token)
-  if (!gh || gh.private) throw new HttpError(400, 'GitHub no longer has that repo (or it went private)')
-  // (renamed on GitHub since it was found: maybe listed under the new name)
-  const renamed = await repoTaken(env, gh.info.repo)
-  if (renamed) {
-    await env.DB.prepare('DELETE FROM found WHERE repo = ?').bind(repo).run()
-    throw new HttpError(409, 'that repo is already listed', { id: renamed })
-  }
-  const info = JSON.parse(row.info)
-  const kind = Object.hasOwn(KINDS, input.kind) ? input.kind : 'firmware'
-  const auto = { kind, name: info.name, devices: [], tags: [], links: [], ...gh.info, sources: ['github'] }
-  const id = await freeId(env, info.name || repo.split('/')[1])
-  await env.DB.prepare('INSERT INTO entries (id, repo, auto, data, created_by, created, updated, synced) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').bind(id, repoKey(auto.repo), JSON.stringify(auto), '{}', user.login, now, now, now).run()
-  await saveVersions(env, id, gh.all, 'github')
-  await env.DB.prepare('DELETE FROM found WHERE repo = ?').bind(repo).run()
-  await audit(env, id, user.login, 'create', { from: 'found', repo })
-  await purge(request, env)
-  return json(effective(await loadRow(env, id)), 201)
 }
 
 // --- admin activity --------------------------------------------------------

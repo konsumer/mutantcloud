@@ -950,7 +950,7 @@ function mine() {
         <span class="actions"><a class="btn small" href="#/p/${esc(e.id)}">View</a>${canEdit(e) ? `<a class="btn small primary" href="#/edit/${esc(e.id)}">Edit</a>` : ''}</span></li>`
       )
       .join('')}</ul>
-    <div class="formbar"><button class="btn" type="button" id="logout">Sign out</button>${ME.user.admin ? '<a class="btn" href="#/admin">Activity</a><a class="btn" href="#/found">Found</a>' : ''}<a class="btn primary" href="#/new">+ Add a project</a></div>`
+    <div class="formbar"><button class="btn" type="button" id="logout">Sign out</button>${ME.user.admin ? '<a class="btn" href="#/admin">Activity</a>' : ''}<a class="btn primary" href="#/new">+ Add a project</a></div>`
   )
   $('#logout').onclick = async () => {
     await api('/auth/logout', { method: 'POST' })
@@ -958,124 +958,6 @@ function mine() {
     account()
     dlg.close()
   }
-}
-
-// --- found on GitHub (admins) ----------------------------------------------
-// what the collector found but didn't list (no installable package yet, a copy of a listed build, ...)
-
-async function foundSheet() {
-  if (!ME.user?.admin) return ME.user ? mine() : signInSheet('Admins only.')
-  open('<h2 id="dlg-title">Found on GitHub</h2><p class="by">Loading…</p>')
-  dlg.classList.add('wide')
-  let a
-  try {
-    a = await api('/api/admin/found')
-  } catch (err) {
-    return open(`<h2 id="dlg-title">Found on GitHub</h2><p class="note">${esc(err.message)}</p>`)
-  }
-  if (location.hash !== '#/found') return
-  const ago = (d) => (d ? `<span title="${esc(d)}">${when(d)}</span>` : '')
-  const row = (f) => {
-    const i = f.info
-    const r = i.release
-    const fork = i.fork ? `fork of <a href="https://github.com/${esc(i.fork)}" target="_blank" rel="noopener">${esc(i.fork)}</a>, ${i.ahead} ${i.ahead === 1 ? 'commit' : 'commits'} of its own` : ''
-    return `<tr data-repo="${esc(f.repo)}">
-      <td><a href="https://github.com/${esc(f.repo)}" target="_blank" rel="noopener"><b>${esc(i.name || f.repo)}</b></a><br><small class="by">${esc(f.repo)}${i.stars ? ` · ★${i.stars}` : ''}${i.archived ? ' · archived' : ''}</small>${i.description ? `<br><small>${esc(i.description)}</small>` : ''}${fork ? `<br><small class="by">${fork}</small>` : ''}</td>
-      <td>${esc(f.why)}${r ? `<br><small class="by"><a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.version)}</a>${r.prerelease ? ' (pre-release)' : ''} ${ago(r.date)}${r.files?.length ? `: ${r.files.map(esc).join(', ')}` : ''}</small>` : ''}</td>
-      <td>${ago(i.updated)}</td>
-      <td class="actions"><select aria-label="List as"><option value="firmware"${i.kind === 'tool' ? '' : ' selected'}>Firmware</option><option value="tool"${i.kind === 'tool' ? ' selected' : ''}>Tool</option></select>
-        <button type="button" class="btn small primary" data-act="list">List</button><button type="button" class="btn small" data-act="dismiss">Dismiss</button></td>
-    </tr>`
-  }
-  // likely firmware first: a release, then stars, then the newest
-  const score = (f) => (f.info.release ? 2 : 0) + (f.info.release?.files?.length ? 1 : 0)
-  const list = [...a.found].sort((x, y) => score(y) - score(x) || (y.info.stars || 0) - (x.info.stars || 0) || String(y.info.updated).localeCompare(String(x.info.updated)))
-  const KINDS = [
-    ['all', 'All', () => true],
-    ['release', 'Has a release', (f) => !!f.info.release],
-    ['none', 'No release', (f) => !f.info.release],
-    ['fork', 'Builds of a base', (f) => /^a fork under/.test(f.why)]
-  ]
-  const st = { kind: 'all', q: '' }
-  open(
-    `<h2 id="dlg-title">Found on GitHub</h2>
-    <p class="by">Only admins can see this. The sync lists what it finds when the latest release has an installable package of its own; these are the rest. Forks without commits of their own aren't here at all.${a.dismissed ? ` ${a.dismissed} dismissed.` : ''}</p>
-    <div class="found-bar">${KINDS.map(([k, label, f]) => `<button type="button" class="chip" data-kind="${k}" aria-pressed="${k === st.kind}">${label} <small>${list.filter(f).length}</small></button>`).join('')}</div>
-    <div class="found-bar"><label class="search"><input type="search" placeholder="Filter by repo, name or description" aria-label="Filter" /></label>
-      <button type="button" class="btn small" data-all>Dismiss all shown</button></div>
-    <p class="fl-status" role="status"></p>
-    <div class="tbl"><table><thead><tr><th>Repo</th><th>Why it isn't listed</th><th>Updated</th><th></th></tr></thead><tbody></tbody></table></div>`
-  )
-  const tbody = $('tbody', dlg)
-  const all = $('[data-all]', dlg)
-  const say = (t) => ($('.fl-status', dlg).textContent = t)
-  const shown = () => {
-    const test = KINDS.find(([k]) => k === st.kind)[2]
-    const q = st.q.toLowerCase()
-    return list.filter((f) => test(f) && (!q || `${f.repo} ${f.info.name || ''} ${f.info.description || ''}`.toLowerCase().includes(q)))
-  }
-  let armed = false
-  const draw = () => {
-    const rows = shown()
-    tbody.innerHTML = rows.length ? rows.slice(0, 300).map(row).join('') : '<tr><td colspan="4">Nothing here.</td></tr>'
-    if (rows.length > 300) tbody.insertAdjacentHTML('beforeend', `<tr><td colspan="4" class="by">${rows.length - 300} more: filter to see them.</td></tr>`)
-    armed = false
-    all.textContent = 'Dismiss all shown'
-    all.disabled = !rows.length
-    for (const b of tbody.querySelectorAll('[data-act]')) b.onclick = () => act(b)
-  }
-  const gone = (repos) => {
-    const out = new Set(repos)
-    for (let i = list.length - 1; i >= 0; i--) if (out.has(list[i].repo)) list.splice(i, 1)
-    for (const c of dlg.querySelectorAll('[data-kind]')) c.querySelector('small').textContent = list.filter(KINDS.find(([k]) => k === c.dataset.kind)[2]).length
-  }
-  const act = async (b) => {
-    const tr = b.closest('tr')
-    const repo = tr.dataset.repo
-    for (const x of tr.querySelectorAll('button, select')) x.disabled = true
-    try {
-      const e = await api('/api/admin/found', { method: 'POST', body: JSON.stringify({ repo, action: b.dataset.act, kind: $('select', tr).value }) })
-      if (b.dataset.act === 'list') {
-        say(`Listed ${e.name}.`)
-        await reload()
-      } else say(`Dismissed ${repo}.`)
-      gone([repo])
-      tr.remove()
-    } catch (err) {
-      say(err.message)
-      for (const x of tr.querySelectorAll('button, select')) x.disabled = false
-    }
-  }
-  for (const c of dlg.querySelectorAll('[data-kind]')) {
-    c.onclick = () => {
-      st.kind = c.dataset.kind
-      for (const x of dlg.querySelectorAll('[data-kind]')) x.setAttribute('aria-pressed', String(x === c))
-      draw()
-    }
-  }
-  $('input[type=search]', dlg).oninput = (ev) => {
-    st.q = ev.target.value.trim()
-    draw()
-  }
-  // two clicks: the first says how many, the second does it
-  all.onclick = async () => {
-    const repos = shown().map((f) => f.repo)
-    if (!armed) {
-      armed = true
-      all.textContent = `Click again to dismiss ${repos.length}`
-      return
-    }
-    all.disabled = true
-    try {
-      const r = await api('/api/admin/found', { method: 'POST', body: JSON.stringify({ repos, action: 'dismiss' }) })
-      say(`Dismissed ${r.dismissed}.`)
-      gone(repos)
-    } catch (err) {
-      say(err.message)
-    }
-    draw()
-  }
-  draw()
 }
 
 // --- admin activity -------------------------------------------------------
@@ -1393,7 +1275,6 @@ function route() {
   else if (h === '#/new') form(null)
   else if (h === '#/mine') mine()
   else if (h === '#/admin') activitySheet()
-  else if (h === '#/found') foundSheet()
   else if (h === '#/make') makeSheet()
   else if ((m = h.match(/^#\/try\/([a-z0-9-]+)(?:\/(fm1|smk37))?/))) trySheet(find(m[1]), m[2])
   else if (listingPath() && find(listingPath())) detail(find(listingPath()))

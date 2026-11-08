@@ -9,6 +9,7 @@
 // env: GITHUB_TOKEN (optional, else `gh auth token`; enables the GitHub refresh), SITE_URL (to keep ids stable)
 
 import { readFile, writeFile, mkdir } from 'node:fs/promises'
+import { spawnSync } from 'node:child_process'
 import { slugify, parseRepo, repoKey, cleanUrl, baseOfRepo, BASE_INFO, RESERVED } from '../src/entry.js'
 import { inspect, deviceOf } from '../src/pkg.js'
 import { ghToken, wrangler, parseJson, DB_NAME } from './wrangler.js'
@@ -72,6 +73,14 @@ const pickAssets = (assets = []) =>
 const PKG = new Map()
 // sha256 of every package listed on the site: a found repo whose packages are all among them is a copy
 const LISTED_SHA = new Set()
+// the device ids each listed repo's packages use: a fork under its parent's name that keeps them is a build of it
+const LISTED_PRODUCTS = new Map()
+const addProduct = (repo, product) => {
+  if (!repo || !product) return
+  const k = repoKey(repo)
+  if (!LISTED_PRODUCTS.has(k)) LISTED_PRODUCTS.set(k, new Set())
+  LISTED_PRODUCTS.get(k).add(product)
+}
 // sha256 + size others already checked (FMDB): used like a GitHub digest, so only the header is fetched.
 // (FMDB's own "identity" is not the product id, so the product always comes from the file.)
 const KNOWN_SHA = new Map()
@@ -313,7 +322,7 @@ async function github(repos) {
   const q = (alias, repo) => {
     const [owner, name] = repo.split('/')
     return `${alias}: repository(owner: ${JSON.stringify(owner)}, name: ${JSON.stringify(name)}) {
-      nameWithOwner description homepageUrl defaultBranchRef { target { oid } } templateRepository { nameWithOwner } parent { nameWithOwner } isArchived pushedAt createdAt stargazerCount
+      nameWithOwner description homepageUrl defaultBranchRef { target { oid } } templateRepository { nameWithOwner } parent { nameWithOwner } isArchived pushedAt createdAt
       licenseInfo { spdxId } owner { login }
       usesCustomOpenGraphImage openGraphImageUrl
       releases(first: 50, orderBy: { field: CREATED_AT, direction: DESC }) { nodes { tagName publishedAt url isPrerelease isDraft releaseAssets(first: 20) { nodes { name downloadUrl size digest } } } }
@@ -346,8 +355,22 @@ async function github(repos) {
 // and copies with nothing changed, are never their own thing.
 
 const SEARCHES = ['m-vave in:name,description,readme', 'mvave in:name,description,readme', 'felucca in:name,description,readme', 'fwsc in:name,description,readme', 'smk-37 in:name,description', 'smk37 in:name,description,readme', '"fm-1" firmware in:name,description,readme', 'fm1 firmware in:name,description,readme', 'topic:fm1', 'topic:mvave']
-// what a repo says about itself to be worth a look: the FM-1 or SMK-37 by name (M-VAVE alone is their other gear too)
-const ABOUT_FM1 = /fm-?1\b|fm1|smk-?37|felucca|sloop|\.fwsc|\bfwsc\b|mke-?p37/i
+// what a repo says about itself to be for the FM-1 or SMK-37 (M-VAVE alone is their other gear too; "FM1" next to more
+// digits is other gear: FM150 radios, FM170 modems)
+const ABOUT_FM1 = /fm-?1(?![0-9])|smk-?37|mke-?p37|felucca|sloop|\bfwsc\b/i
+const TOOLISH = /emulat|editor|librar|recover|unbrick|restore|backup|install|flash|driver|plugin|vst|mirror|companion|controller|manager|console|template|\bsdk\b|toolchain|app\b|android|ios\b|mac|windows|tab5|esp32|rp20[0-9]{2}|pico|xiao|flipper|circuitpython/i
+// a tool's tags, from what it says it is (TAGS.tool in src/entry.js)
+const TOOL_TAGS = [
+  ['sdk', /template|\bbase\b|\bsdk\b|toolchain|framework/i],
+  ['emulator', /emulat|virtuali[sz]/i],
+  ['editor', /editor/i],
+  ['librarian', /librar/i],
+  ['recovery', /recover|unbrick|restore|backup/i],
+  ['installer', /install|flash/i],
+  ['plugin', /plugin|vst|\bau\b|logue/i],
+  ['hardware', /rp20[0-9]{2}|esp32|pico|xiao|tab5|flipper|circuitpython|uf2/i],
+  ['app', /\bapp\b|android|ios\b|desktop|mac|windows/i]
+]
 // the FM-1's own firmware scene started in 2026: a repo untouched since before then is something else
 const SCENE_START = '2026-06-01'
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -469,8 +492,8 @@ async function aheadBy(f) {
   return r ? r.ahead_by : null
 }
 
-// repos to look at: { src: 'github', repo, name, found: { fork, ahead } }. skip: repos not to bother with (dismissed)
-async function fromGithub(roots, skip) {
+// repos to look at: { src: 'github', repo, name, found: { fork, ahead } }
+async function fromGithub(roots) {
   if (!TOKEN) {
     log('(no GITHUB_TOKEN, skipping GitHub discovery)')
     return []
@@ -481,7 +504,7 @@ async function fromGithub(roots, skip) {
   log(`  github search: ${hits.size} repos`)
   const forks = await forksOf([...new Set([...roots, ...[...hits].filter(([, n]) => n > 0).map(([repo]) => repo)])])
   // a fork that was never pushed to, or never made a release, has nothing to install: not even worth asking
-  const maybe = forks.filter((f) => !skip.has(repoKey(f.repo)) && f.releases > 0 && f.pushedAt > f.createdAt)
+  const maybe = forks.filter((f) => f.releases > 0 && f.pushedAt > f.createdAt)
   log(`  github forks: ${forks.length}, with a release of their own: ${maybe.length}`)
   const items = []
   for (const f of maybe) {
@@ -492,7 +515,7 @@ async function fromGithub(roots, skip) {
     items.push({ src: 'github', repo: f.repo, name: f.repo.split('/')[1], kind: 'firmware', links: [], found: { fork: f.parent, ahead } })
   }
   log(`  github forks with changes of their own: ${items.length}`)
-  for (const repo of hits.keys()) if (!skip.has(repoKey(repo))) items.push({ src: 'github', repo, name: repo.split('/')[1], kind: 'firmware', links: [], found: {} })
+  for (const repo of hits.keys()) items.push({ src: 'github', repo, name: repo.split('/')[1], kind: 'firmware', links: [], found: {} })
   await writeFile(cacheFile, JSON.stringify(cache) + '\n')
   return items
 }
@@ -620,7 +643,6 @@ function applyGithub(e, g) {
   e.license = e.license || (g.licenseInfo?.spdxId !== 'NOASSERTION' ? g.licenseInfo?.spdxId : null) || null
   e.author = e.author || g.owner.login
   if (g.isArchived) e.archived = true
-  e._stars = g.stargazerCount
   // lineage on GitHub (made from a base's template, or a fork of it) beats what the other hubs said
   const base = baseOfRepo(g.templateRepository?.nameWithOwner, g.parent?.nameWithOwner)
   if (base && repoKey(e.repo) !== repoKey(BASE_REPO_OF[base])) e.base = base
@@ -714,6 +736,7 @@ async function checkPackages(entries) {
   for (const f of [...(live?.firmwares || []), ...(live?.stock ? [live.stock] : [])]) {
     seedPkg(f.pkg, f)
     if (f.sha256) LISTED_SHA.add(f.sha256)
+    addProduct(f.repo, f.product)
   }
 
   // the latest release (and pre-release) of every entry
@@ -761,7 +784,12 @@ async function checkPackages(entries) {
 
 // the database's entries (hidden ones too): their ids, repos, and the loose keys of those without a repo
 function listed() {
-  const out = wrangler(['d1', 'execute', DB_NAME, '--remote', '--json', '--command', 'SELECT id, repo, auto, data FROM entries'], { quiet: true, allowFail: true })
+  // (Cloudflare's API fails a read now and then: a few tries before giving up)
+  let out = null
+  for (let i = 0; i < 4 && out === null; i++) {
+    if (i) spawnSync('sleep', [String(5 * i)])
+    out = wrangler(['d1', 'execute', DB_NAME, '--remote', '--json', '--command', 'SELECT id, repo, auto, data FROM entries'], { quiet: true, allowFail: true })
+  }
   if (out === null) return null
   const rows = parseJson(out)[0]?.results || []
   const db = { ids: new Set(), repos: new Map(), loose: new Set(), keys: new Map() }
@@ -772,9 +800,6 @@ function listed() {
     if (!r.repo && !e.repo && e.name) for (const k of looseKeys(e)) db.loose.add(k)
     db.keys.set(e.repo ? repoKey(e.repo) : keyOf({ name: e.name || r.id, homepage: e.homepage, links: e.links }), r.id)
   }
-  // repos the admins dismissed from the found list (the table is new: none if it isn't there yet)
-  const found = wrangler(['d1', 'execute', DB_NAME, '--remote', '--json', '--command', 'SELECT repo FROM found WHERE dismissed IS NOT NULL'], { quiet: true, allowFail: true })
-  db.dismissed = new Set(found ? (parseJson(found)[0]?.results || []).map((r) => r.repo) : [])
   return db
 }
 
@@ -799,7 +824,7 @@ async function main() {
   log(`  firmwarehub ${hub.length}, fmdb ${fmdb.length}, fm1-editor ${ed.length}`)
   // (every listing's forks too, so the walk starts from the bases and from everything listed)
   const roots = [...new Set([...Object.values(BASE_REPO_OF).filter(Boolean), ...liveRepos, ...[...hub, ...ed, ...fmdb].map((i) => i.repo).filter(Boolean)])]
-  const found = await fromGithub(roots, db?.dismissed || new Set())
+  const found = await fromGithub(roots)
 
   const groups = new Map()
   const withRepo = [...hub, ...ed, ...fmdb, ...found].filter((i) => i.repo)
@@ -856,29 +881,68 @@ async function main() {
 
   await checkPackages(entries)
 
-  // what GitHub discovery alone found gets listed only with an installable package of its own; the rest waits in
-  // the found list for an admin
+  // what GitHub discovery alone found is listed automatically, or not at all (nobody reviews a queue):
+  // - firmware: its latest release has an installable FM-1 / SMK-37 package that isn't a listed file
+  // - a tool: it says it's for the FM-1 / SMK-37 in its name or description, was worked on since that had firmware of
+  //   its own, and its latest release has files
+  // Never: forks under their parent's name (someone's build of it), copies, packages for other gear on the same chip.
+  // One listed wrongly is hidden by an admin, and stays hidden (the sync never adds a listed repo again).
   // (packages for the FM-1 and the SMK-37 family only: the same chip runs other makers' gear too)
   const pkgs = (e) => [...(e.release?.assets || []), ...(e.prerelease?.assets || [])].filter((a) => a.sha256 && a.product && deviceOf(a.product))
-  for (const e of entries) if (!e.sources.every((s) => s === 'github')) for (const a of pkgs(e)) LISTED_SHA.add(a.sha256)
-  const waiting = []
+  for (const e of entries) {
+    if (e.sources.every((s) => s === 'github')) continue
+    for (const a of pkgs(e)) {
+      LISTED_SHA.add(a.sha256)
+      addProduct(e.repo, a.product)
+    }
+  }
+  const skipped = {}
+  const skip = (why) => {
+    skipped[why] = (skipped[why] || 0) + 1
+    return false
+  }
   entries = entries.filter((e) => {
     if (!e.sources.every((s) => s === 'github') || db?.repos.has(e.key)) return true
-    const mine = pkgs(e)
-    // a fork under its parent's own name is most likely someone's build of it, not a firmware of its own
     const fork = e._found?.fork
-    const why = !e.release && !e.prerelease ? 'no release' : !mine.length ? 'no installable package in its latest release' : mine.every((a) => LISTED_SHA.has(a.sha256)) ? 'its package is the same file as a listed one' : fork && fork.split('/')[1].toLowerCase() === e.key.split('/')[1] ? `a fork under its parent's name: maybe someone's own build of ${fork}` : null
-    if (!why) {
+    const sameName = fork && fork.split('/')[1].toLowerCase() === e.key.split('/')[1]
+    const files = [...(e.release?.assets || []), ...(e.prerelease?.assets || [])]
+    if (files.some((a) => a.product && !deviceOf(a.product))) return skip('a package for other gear')
+    const mine = pkgs(e)
+    if (mine.length) {
+      if (mine.every((a) => LISTED_SHA.has(a.sha256))) return skip('a copy of a listed package')
+      // under its parent's name: its own firmware only with a device id of its own (a build of the parent keeps the
+      // parent's), and then named after its owner too, so it isn't taken for the original
+      if (sameName) {
+        const theirs = LISTED_PRODUCTS.get(repoKey(fork))
+        if (!theirs || mine.some((a) => theirs.has(a.product))) return skip('a build of its parent (its name and device id)')
+        e.name = `${e.name} (${e.key.split('/')[0]})`
+      }
       for (const a of mine) LISTED_SHA.add(a.sha256)
       return true
     }
-    // (only repos that say they're for the FM-1 / SMK-37, and were worked on since it had firmware of its own:
-    // the searches match plenty of other things)
-    if (!ABOUT_FM1.test(`${e.key} ${e.name} ${e.description || ''}`) || (e.updated || '') < SCENE_START) return false
-    waiting.push({ e, why })
-    return false
+    if (sameName) return skip("a fork under its parent's name")
+    const text = `${e.key.split('/')[1]} ${e.name} ${e.description || ''}`
+    if (!files.length) return skip(e.release || e.prerelease ? 'a release without files' : 'no release')
+    if (!ABOUT_FM1.test(text) || (e.updated || '') < SCENE_START) return skip('not about the FM-1 / SMK-37')
+    // a tool (an emulator, an editor, a recovery helper, ...), unless it calls itself firmware
+    const firmware = !TOOLISH.test(text) && (/firmware/i.test(text) || files.some((a) => /\.(fwsc|bin|hex)$/i.test(a.name)))
+    e.kind = firmware ? 'firmware' : 'tool'
+    if (!firmware)
+      e.tags = TOOL_TAGS.filter(([, re]) => re.test(text))
+        .map(([t]) => t)
+        .slice(0, 2)
+    if (/smk-?37|mke-?p37/i.test(text)) e.devices = [...new Set([...e.devices, 'smk37'])]
+    if (!e.devices.length) e.devices = ['fm1']
+    return true
   })
-  log(`  github discovery: ${entries.filter((e) => e.sources.every((s) => s === 'github')).length} to list, ${waiting.length} for the found list`)
+  const listedNow = entries.filter((e) => e.sources.every((s) => s === 'github'))
+  log(
+    `  github discovery: listing ${listedNow.filter((e) => e.kind === 'firmware').length} firmwares and ${listedNow.filter((e) => e.kind === 'tool').length} tools; skipped ${
+      Object.entries(skipped)
+        .map(([k, n]) => `${n} (${k})`)
+        .join(', ') || 'none'
+    }`
+  )
 
   // assign ids
   const versions = new Map()
@@ -900,7 +964,6 @@ async function main() {
     delete e._versions
     delete e._vsrc
     delete e._found
-    delete e._stars
     for (const k of Object.keys(e)) if (e[k] === undefined || e[k] === null) delete e[k]
   }
   entries.sort((a, b) => a.id.localeCompare(b.id))
@@ -941,29 +1004,6 @@ async function main() {
     }
   }
   log(`  ${nv} versions`)
-  // the found list: refreshed every run (dismissed stays dismissed), and anything listed by now leaves it
-  for (const { e, why } of waiting) {
-    const r = e.prerelease && (!e.release || e.prerelease.date > e.release.date) ? e.prerelease : e.release
-    const info = {
-      name: e.name,
-      description: e.description || undefined,
-      author: e.author || undefined,
-      kind: (e.release?.assets || []).length ? 'firmware' : undefined,
-      base: e.base || undefined,
-      fork: e._found?.fork,
-      ahead: e._found?.ahead,
-      stars: e._stars || undefined,
-      added: e.added || undefined,
-      updated: e.updated || undefined,
-      archived: e.archived || undefined,
-      release: r ? { version: r.version, date: r.date, url: r.url, prerelease: r.prerelease, files: (r.assets || []).map((a) => a.name) } : undefined
-    }
-    sql.push(`INSERT INTO found (repo, info, why, first, seen) VALUES (${q(e.key)}, ${q(JSON.stringify(info))}, ${q(why)}, ${q(now)}, ${q(now)}) ON CONFLICT(repo) DO UPDATE SET info = excluded.info, why = excluded.why, seen = excluded.seen;`)
-  }
-  sql.push('DELETE FROM found WHERE repo IN (SELECT repo FROM entries WHERE repo IS NOT NULL);')
-  // what this run didn't find again (or filters out now) leaves the list; dismissed ones stay, so they stay dismissed
-  // (only after a run whose discovery worked: a failed search must not empty the list)
-  if (found.length) sql.push(`DELETE FROM found WHERE dismissed IS NULL AND seen < ${q(now)};`)
   await writeFile(new URL('auto.sql', OUT), sql.join('\n') + '\n')
   const by = (k) => entries.filter(k).length
   if (!FULL) log(entries.length ? `${entries.length} new: ${entries.map((e) => e.name).join(', ')}` : 'nothing new to add')

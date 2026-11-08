@@ -1,5 +1,4 @@
-# npm run sync, every day: new listings from the other hubs and from GitHub itself (searches, forks), and the
-# admins' Found list. New versions of listed firmware don't wait for this: the worker's own watcher gets them.
+# npm run sync, every day: new listings from the other hubs and from GitHub itself (searches, forks). New versions of listed firmware don't wait for this: the worker's own watcher gets them.
 # Needs the CLOUDFLARE_API_TOKEN secret (a token that can edit D1).
 name: sync
 on:
