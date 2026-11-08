@@ -133,6 +133,13 @@ export function cleanUrl(s) {
   }
 }
 
+// a file in a GitHub repo, as its direct download: github.com/o/r/blob/ref/path?raw=true and /raw/ links are
+// redirects GitHub sometimes fails (504), raw.githubusercontent.com serves the file itself
+export function rawGithub(s) {
+  const m = String(s || '').match(/^https:\/\/(?:www\.)?github\.com\/([^/]+)\/([^/]+)\/(?:blob|raw)\/(.+?)(?:\?.*)?$/)
+  return m ? `https://raw.githubusercontent.com/${m[1]}/${m[2]}/${m[3]}` : s
+}
+
 const str = (s, max) => {
   if (s == null) return null
   const t = String(s).replace(/\s+/g, ' ').trim()
@@ -183,7 +190,7 @@ export function cleanInput(body, { partial = false } = {}) {
   if (has('homepage')) data.homepage = cleanUrl(body.homepage)
   if (has('description')) data.description = str(body.description, MAX.description)
   if (has('license')) data.license = str(body.license, MAX.license)
-  if (has('image')) data.image = body.image ? cleanUrl(body.image) : null
+  if (has('image')) data.image = body.image ? cleanUrl(rawGithub(body.image)) : null
   if (has('beta')) data.beta = !!body.beta
   // false: no "Try" in the web emulator (the maker would rather send people to their own page or demo)
   if (has('emulator')) data.emulator = body.emulator !== false
@@ -246,7 +253,8 @@ export function effective(row) {
   if (screen) e.screen = screen
   // the card's picture: the owner's, the maker's (their fmhub.json card, else a picture from their repo or site),
   // and only then the emulator's screenshot
-  e.cover = data.image || auto.card || auto.image || screen || null
+  if (e.image) e.image = rawGithub(e.image)
+  e.cover = rawGithub(data.image || auto.card || auto.image) || screen || null
   if (e.cover && e.cover === screen) e.coverIsScreen = true
   e.tags = e.tags || []
   // the owner's main tag, else the first one collected (the hubs list their main category first)
