@@ -1260,7 +1260,7 @@ async function reload() {
   const data = await firmware()
   DATA = data
   const makers = new Set(DATA.entries.map((e) => (e.github || e.author).toLowerCase()))
-  $('#stats').textContent = `${DATA.count} firmwares & tools from ${makers.size} makers. Self-serve: makers sign in with GitHub and keep their own listings up to date.`
+  $('#stats').textContent = `${DATA.count} firmwares & tools from ${makers.size} makers. Self-serve: makers sign in with GitHub and keep your own listings up to date.`
   controls()
   render()
   const me = await meP
