@@ -340,7 +340,7 @@ function repoOfUrl(u) {
 // one page of a subreddit's newest posts (the public feed; the JSON API wants a login): [{ id, url, date, links }]
 async function redditPage(sub, after) {
   const url = `https://www.reddit.com/r/${sub}/new/.rss?limit=100${after ? `&after=${after}` : ''}`
-  for (let tries = 0; tries < 3; tries++) {
+  for (let tries = 0; tries < 4; tries++) {
     const r = await fetch(url, { headers: UA, signal: AbortSignal.timeout(30000) }).catch(() => null)
     if (r?.ok) {
       const x = await r.text()
@@ -356,7 +356,7 @@ async function redditPage(sub, after) {
     }
     // too many requests: wait as long as Reddit asks (at most a minute), then once more
     if (r?.status !== 429 && r) break
-    const wait = Math.min(60, Number(r?.headers.get('retry-after')) || 20)
+    const wait = Math.min(60, Number(r?.headers.get('retry-after')) || 60)
     log(`  reddit: ${r ? 'rate limited' : 'no answer'}, waiting ${wait} s`)
     await sleep(wait * 1000)
   }
@@ -380,7 +380,7 @@ async function fromReddit() {
     let after = null
     // the newest 100 is a few days of posts (the sync runs daily); --full looks further back
     for (let page = 0; page < (FULL ? 10 : 1); page++) {
-      if (posts) await sleep(3000) // gently: Reddit limits how often its feed is read
+      if (posts) await sleep(30000) // gently: Reddit's feed allows about one read a minute without a login
       const list = await redditPage(sub, after)
       if (!list?.length) break
       posts += list.length
