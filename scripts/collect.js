@@ -346,7 +346,10 @@ async function github(repos) {
 // and copies with nothing changed, are never their own thing.
 
 const SEARCHES = ['m-vave in:name,description,readme', 'mvave in:name,description,readme', 'felucca in:name,description,readme', 'fwsc in:name,description,readme', 'smk-37 in:name,description', 'smk37 in:name,description,readme', '"fm-1" firmware in:name,description,readme', 'fm1 firmware in:name,description,readme', 'topic:fm1', 'topic:mvave']
-const ABOUT_FM1 = /fm-?1\b|fm1|smk-?37|m-?vave|felucca|sloop|fwsc|mke-?p37/i
+// what a repo says about itself to be worth a look: the FM-1 or SMK-37 by name (M-VAVE alone is their other gear too)
+const ABOUT_FM1 = /fm-?1\b|fm1|smk-?37|felucca|sloop|\.fwsc|\bfwsc\b|mke-?p37/i
+// the FM-1's own firmware scene started in 2026: a repo untouched since before then is something else
+const SCENE_START = '2026-06-01'
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 async function ghRest(path) {
@@ -869,8 +872,9 @@ async function main() {
       for (const a of mine) LISTED_SHA.add(a.sha256)
       return true
     }
-    // (with nothing released, only repos that say what they're for: searches match plenty of unrelated ones)
-    if (why === 'no release' && !ABOUT_FM1.test(`${e.key} ${e.name} ${e.description || ''}`)) return false
+    // (only repos that say they're for the FM-1 / SMK-37, and were worked on since it had firmware of its own:
+    // the searches match plenty of other things)
+    if (!ABOUT_FM1.test(`${e.key} ${e.name} ${e.description || ''}`) || (e.updated || '') < SCENE_START) return false
     waiting.push({ e, why })
     return false
   })
@@ -957,6 +961,9 @@ async function main() {
     sql.push(`INSERT INTO found (repo, info, why, first, seen) VALUES (${q(e.key)}, ${q(JSON.stringify(info))}, ${q(why)}, ${q(now)}, ${q(now)}) ON CONFLICT(repo) DO UPDATE SET info = excluded.info, why = excluded.why, seen = excluded.seen;`)
   }
   sql.push('DELETE FROM found WHERE repo IN (SELECT repo FROM entries WHERE repo IS NOT NULL);')
+  // what this run didn't find again (or filters out now) leaves the list; dismissed ones stay, so they stay dismissed
+  // (only after a run whose discovery worked: a failed search must not empty the list)
+  if (found.length) sql.push(`DELETE FROM found WHERE dismissed IS NULL AND seen < ${q(now)};`)
   await writeFile(new URL('auto.sql', OUT), sql.join('\n') + '\n')
   const by = (k) => entries.filter(k).length
   if (!FULL) log(entries.length ? `${entries.length} new: ${entries.map((e) => e.name).join(', ')}` : 'nothing new to add')

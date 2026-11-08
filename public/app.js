@@ -987,31 +987,95 @@ async function foundSheet() {
         <button type="button" class="btn small primary" data-act="list">List</button><button type="button" class="btn small" data-act="dismiss">Dismiss</button></td>
     </tr>`
   }
+  // likely firmware first: a release, then stars, then the newest
+  const score = (f) => (f.info.release ? 2 : 0) + (f.info.release?.files?.length ? 1 : 0)
+  const list = [...a.found].sort((x, y) => score(y) - score(x) || (y.info.stars || 0) - (x.info.stars || 0) || String(y.info.updated).localeCompare(String(x.info.updated)))
+  const KINDS = [
+    ['all', 'All', () => true],
+    ['release', 'Has a release', (f) => !!f.info.release],
+    ['none', 'No release', (f) => !f.info.release],
+    ['fork', 'Builds of a base', (f) => /^a fork under/.test(f.why)]
+  ]
+  const st = { kind: 'all', q: '' }
   open(
     `<h2 id="dlg-title">Found on GitHub</h2>
     <p class="by">Only admins can see this. The sync lists what it finds when the latest release has an installable package of its own; these are the rest. Forks without commits of their own aren't here at all.${a.dismissed ? ` ${a.dismissed} dismissed.` : ''}</p>
-    ${a.found.length ? `<div class="tbl"><table><thead><tr><th>Repo</th><th>Why it isn't listed</th><th>Updated</th><th></th></tr></thead><tbody>${a.found.map(row).join('')}</tbody></table></div>` : '<p>Nothing waiting.</p>'}
-    <p class="fl-status" role="status"></p>`
+    <div class="found-bar">${KINDS.map(([k, label, f]) => `<button type="button" class="chip" data-kind="${k}" aria-pressed="${k === st.kind}">${label} <small>${list.filter(f).length}</small></button>`).join('')}</div>
+    <div class="found-bar"><label class="search"><input type="search" placeholder="Filter by repo, name or description" aria-label="Filter" /></label>
+      <button type="button" class="btn small" data-all>Dismiss all shown</button></div>
+    <p class="fl-status" role="status"></p>
+    <div class="tbl"><table><thead><tr><th>Repo</th><th>Why it isn't listed</th><th>Updated</th><th></th></tr></thead><tbody></tbody></table></div>`
   )
+  const tbody = $('tbody', dlg)
+  const all = $('[data-all]', dlg)
   const say = (t) => ($('.fl-status', dlg).textContent = t)
-  for (const b of dlg.querySelectorAll('[data-act]')) {
-    b.onclick = async () => {
-      const tr = b.closest('tr')
-      const repo = tr.dataset.repo
-      for (const x of tr.querySelectorAll('button, select')) x.disabled = true
-      try {
-        const e = await api('/api/admin/found', { method: 'POST', body: JSON.stringify({ repo, action: b.dataset.act, kind: $('select', tr).value }) })
-        if (b.dataset.act === 'list') {
-          say(`Listed ${e.name}.`)
-          await reload()
-        } else say(`Dismissed ${repo}.`)
-        tr.remove()
-      } catch (err) {
-        say(err.message)
-        for (const x of tr.querySelectorAll('button, select')) x.disabled = false
-      }
+  const shown = () => {
+    const test = KINDS.find(([k]) => k === st.kind)[2]
+    const q = st.q.toLowerCase()
+    return list.filter((f) => test(f) && (!q || `${f.repo} ${f.info.name || ''} ${f.info.description || ''}`.toLowerCase().includes(q)))
+  }
+  let armed = false
+  const draw = () => {
+    const rows = shown()
+    tbody.innerHTML = rows.length ? rows.slice(0, 300).map(row).join('') : '<tr><td colspan="4">Nothing here.</td></tr>'
+    if (rows.length > 300) tbody.insertAdjacentHTML('beforeend', `<tr><td colspan="4" class="by">${rows.length - 300} more: filter to see them.</td></tr>`)
+    armed = false
+    all.textContent = 'Dismiss all shown'
+    all.disabled = !rows.length
+    for (const b of tbody.querySelectorAll('[data-act]')) b.onclick = () => act(b)
+  }
+  const gone = (repos) => {
+    const out = new Set(repos)
+    for (let i = list.length - 1; i >= 0; i--) if (out.has(list[i].repo)) list.splice(i, 1)
+    for (const c of dlg.querySelectorAll('[data-kind]')) c.querySelector('small').textContent = list.filter(KINDS.find(([k]) => k === c.dataset.kind)[2]).length
+  }
+  const act = async (b) => {
+    const tr = b.closest('tr')
+    const repo = tr.dataset.repo
+    for (const x of tr.querySelectorAll('button, select')) x.disabled = true
+    try {
+      const e = await api('/api/admin/found', { method: 'POST', body: JSON.stringify({ repo, action: b.dataset.act, kind: $('select', tr).value }) })
+      if (b.dataset.act === 'list') {
+        say(`Listed ${e.name}.`)
+        await reload()
+      } else say(`Dismissed ${repo}.`)
+      gone([repo])
+      tr.remove()
+    } catch (err) {
+      say(err.message)
+      for (const x of tr.querySelectorAll('button, select')) x.disabled = false
     }
   }
+  for (const c of dlg.querySelectorAll('[data-kind]')) {
+    c.onclick = () => {
+      st.kind = c.dataset.kind
+      for (const x of dlg.querySelectorAll('[data-kind]')) x.setAttribute('aria-pressed', String(x === c))
+      draw()
+    }
+  }
+  $('input[type=search]', dlg).oninput = (ev) => {
+    st.q = ev.target.value.trim()
+    draw()
+  }
+  // two clicks: the first says how many, the second does it
+  all.onclick = async () => {
+    const repos = shown().map((f) => f.repo)
+    if (!armed) {
+      armed = true
+      all.textContent = `Click again to dismiss ${repos.length}`
+      return
+    }
+    all.disabled = true
+    try {
+      const r = await api('/api/admin/found', { method: 'POST', body: JSON.stringify({ repos, action: 'dismiss' }) })
+      say(`Dismissed ${r.dismissed}.`)
+      gone(repos)
+    } catch (err) {
+      say(err.message)
+    }
+    draw()
+  }
+  draw()
 }
 
 // --- admin activity -------------------------------------------------------

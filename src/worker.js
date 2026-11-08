@@ -1110,14 +1110,20 @@ async function foundList(env) {
   return json({ found: open.results.map((r) => ({ ...r, info: JSON.parse(r.info) })), dismissed: dismissed.results[0].n }, 200, { 'cache-control': 'no-store' })
 }
 
-// { repo, action: 'list' | 'dismiss', kind? }: list it (as the collector would: from GitHub, nobody manages it until
+// { repo, action: 'list' | 'dismiss', kind? } or { repos, action: 'dismiss' }: list it (as the collector would: from GitHub, nobody manages it until
 // its owner signs in) or never show it again
 async function foundAct(request, env, user) {
   const input = await body(request)
+  const now = new Date().toISOString()
+  // { repos: [...], action: 'dismiss' }: many at once (the page's "dismiss all shown")
+  if (input.action === 'dismiss' && Array.isArray(input.repos)) {
+    const repos = [...new Set(input.repos.map(repoKey).filter(Boolean))].slice(0, 1000)
+    await env.DB.batch(repos.map((r) => env.DB.prepare('UPDATE found SET dismissed = ? WHERE repo = ?').bind(`${now} ${user.login}`, r)))
+    return json({ ok: true, dismissed: repos.length })
+  }
   const repo = repoKey(input.repo)
   const row = repo && (await env.DB.prepare('SELECT info FROM found WHERE repo = ?').bind(repo).first())
   if (!row) throw new HttpError(404, 'not in the found list')
-  const now = new Date().toISOString()
   if (input.action === 'dismiss') {
     await env.DB.prepare('UPDATE found SET dismissed = ? WHERE repo = ?').bind(`${now} ${user.login}`, repo).run()
     return json({ ok: true })
