@@ -70,6 +70,8 @@ const pickAssets = (assets = []) =>
 
 // package checks by URL: { sha256, size, product } or false (not a package)
 const PKG = new Map()
+// sha256 of every package listed on the site: a found repo whose packages are all among them is a copy
+const LISTED_SHA = new Set()
 // sha256 + size others already checked (FMDB): used like a GitHub digest, so only the header is fetched.
 // (FMDB's own "identity" is not the product id, so the product always comes from the file.)
 const KNOWN_SHA = new Map()
@@ -254,7 +256,8 @@ async function fromFm1Editor() {
     let repo = null
     let homepage = null
     const links = []
-    for (const m of s.matchAll(/<a[^>]*class="[^"]*firmware-link[^"]*"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)) {
+    // (the main link, and the rest in its "more links" menu)
+    for (const m of s.matchAll(/<a[^>]*class="[^"]*firmware-(?:menu-)?link[^"]*"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a\s*>/g)) {
       const url = decode(m[1])
       const label = decode(m[2]).replace(/\s*↗$/, '')
       const r = /github\.com\//.test(url) ? parseRepo(url) : null
@@ -310,29 +313,185 @@ async function github(repos) {
   const q = (alias, repo) => {
     const [owner, name] = repo.split('/')
     return `${alias}: repository(owner: ${JSON.stringify(owner)}, name: ${JSON.stringify(name)}) {
-      nameWithOwner description homepageUrl defaultBranchRef { target { oid } } templateRepository { nameWithOwner } parent { nameWithOwner } isArchived pushedAt createdAt
+      nameWithOwner description homepageUrl defaultBranchRef { target { oid } } templateRepository { nameWithOwner } parent { nameWithOwner } isArchived pushedAt createdAt stargazerCount
       licenseInfo { spdxId } owner { login }
       usesCustomOpenGraphImage openGraphImageUrl
       releases(first: 50, orderBy: { field: CREATED_AT, direction: DESC }) { nodes { tagName publishedAt url isPrerelease isDraft releaseAssets(first: 20) { nodes { name downloadUrl size digest } } } }
     }`
   }
-  for (let i = 0; i < repos.length; i += 20) {
-    const batch = repos.slice(i, i + 20)
-    const query = `query { ${batch.map((r, j) => q(`r${j}`, r)).join('\n')} }`
-    const r = await fetch('https://api.github.com/graphql', {
-      method: 'POST',
-      headers: { ...UA, authorization: `bearer ${TOKEN}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ query })
-    })
-    const j = await r.json().catch(() => ({}))
+  // a batch GitHub can't answer (a 502 on a big one) is split, never taken as "these repos are gone"
+  const ask = async (batch) => {
+    const d = await gql(`query { ${batch.map((r, j) => q(`r${j}`, r)).join('\n')} }`)
+    if (!Object.keys(d).length) {
+      if (batch.length > 1) {
+        await ask(batch.slice(0, Math.ceil(batch.length / 2)))
+        await ask(batch.slice(Math.ceil(batch.length / 2)))
+      }
+      return
+    }
     batch.forEach((repo, k) => {
-      const d = j.data?.[`r${k}`]
-      info[repo.toLowerCase()] = d || false
+      info[repo.toLowerCase()] = d[`r${k}`] || false
     })
-    if (j.errors && !j.data) log('  github error', JSON.stringify(j.errors).slice(0, 300))
+  }
+  for (let i = 0; i < repos.length; i += 20) {
+    await ask(repos.slice(i, i + 20))
     log(`  github ${Math.min(i + 20, repos.length)}/${repos.length}`)
   }
   return info
+}
+
+// --- GitHub discovery -------------------------------------------------------
+// Repos nobody listed anywhere: GitHub searches, and the forks of every base and listing (and their forks).
+// A fork only counts when its main branch has commits of its own and it made a release: forks for a pull request,
+// and copies with nothing changed, are never their own thing.
+
+const SEARCHES = ['m-vave in:name,description,readme', 'mvave in:name,description,readme', 'felucca in:name,description,readme', 'fwsc in:name,description,readme', 'smk-37 in:name,description', 'smk37 in:name,description,readme', '"fm-1" firmware in:name,description,readme', 'fm1 firmware in:name,description,readme', 'topic:fm1', 'topic:mvave']
+const ABOUT_FM1 = /fm-?1\b|fm1|smk-?37|m-?vave|felucca|sloop|fwsc|mke-?p37/i
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+
+async function ghRest(path) {
+  for (let tries = 0; tries < 3; tries++) {
+    const r = await fetch(`https://api.github.com${path}`, { headers: { ...UA, accept: 'application/vnd.github+json', authorization: `bearer ${TOKEN}` }, signal: AbortSignal.timeout(30000) }).catch(() => null)
+    if (!r) continue
+    if (r.ok) return r.json()
+    if (r.status === 404 || r.status === 422) return null
+    // rate limited: wait until GitHub says it's fine again (at most a minute)
+    if (r.status === 403 || r.status === 429) {
+      const reset = Number(r.headers.get('x-ratelimit-reset')) * 1000 - Date.now()
+      const wait = Math.min(60000, Math.max(Number(r.headers.get('retry-after')) * 1000 || 0, reset || 0, 5000))
+      log(`  github: rate limited, waiting ${Math.round(wait / 1000)} s`)
+      await sleep(wait)
+      continue
+    }
+    return null
+  }
+  return null
+}
+
+async function gql(query) {
+  const r = await fetch('https://api.github.com/graphql', {
+    method: 'POST',
+    headers: { ...UA, authorization: `bearer ${TOKEN}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ query }),
+    signal: AbortSignal.timeout(60000)
+  }).catch(() => null)
+  const j = r ? await r.json().catch(() => ({})) : {}
+  if (!r || !r.ok) log(`  github graphql: ${r ? r.status : 'no answer'}`)
+  if (j.errors && !j.data) log('  github error', JSON.stringify(j.errors).slice(0, 300))
+  return j.data || {}
+}
+
+// repos (not forks: search leaves them out) that match the searches: Map repo -> how many forks it has
+async function searchRepos() {
+  const out = new Map()
+  const search = async (q, page) => {
+    const r = await ghRest(`/search/repositories?q=${encodeURIComponent(q)}&per_page=100&page=${page}`)
+    await sleep(2100) // the search API allows 30 a minute
+    return r
+  }
+  const dayOf = (t) => new Date(t).toISOString().slice(0, 10)
+  // GitHub gives at most 1000 results a query: more than that is split by when the repos were made
+  const run = async (q, from, to) => {
+    const qq = from ? `${q} created:${from}..${to}` : q
+    const first = await search(qq, 1)
+    if (!first) return
+    if (first.total_count > 1000 && (!from || from < to)) {
+      const a = from ? Date.parse(from) : Date.parse('2024-01-01')
+      const b = to ? Date.parse(to) : Date.now()
+      const mid = dayOf(a + (b - a) / 2)
+      await run(q, dayOf(a), mid)
+      await run(q, dayOf(Date.parse(mid) + 864e5), dayOf(b))
+      return
+    }
+    for (let page = 1, r = first; ;) {
+      for (const it of r.items || []) if (!it.private) out.set(it.full_name, it.forks_count)
+      if ((r.items || []).length < 100 || page >= 10) break
+      r = await search(qq, ++page)
+      if (!r) break
+    }
+  }
+  for (const q of SEARCHES) await run(q)
+  return out
+}
+
+// every fork of these repos, and of their forks: { repo, parent, parentBranch, branch, createdAt, pushedAt, releases }
+async function forksOf(roots) {
+  const seen = new Set(roots.map(repoKey))
+  const out = []
+  let todo = roots.map((repo) => ({ repo, after: null }))
+  while (todo.length) {
+    const next = []
+    const ask = async (batch) => {
+      const query = `query { ${batch
+        .map(({ repo, after }, j) => {
+          const [owner, name] = repo.split('/')
+          return `r${j}: repository(owner: ${JSON.stringify(owner)}, name: ${JSON.stringify(name)}) { nameWithOwner defaultBranchRef { name }
+            forks(first: 100${after ? `, after: ${JSON.stringify(after)}` : ''}) { pageInfo { hasNextPage endCursor }
+              nodes { nameWithOwner isPrivate createdAt pushedAt forkCount defaultBranchRef { name } releases { totalCount } } } }`
+        })
+        .join('\n')} }`
+      const d = await gql(query)
+      // too big for GitHub this time (it answers 502): halves
+      if (!Object.keys(d).length && batch.length > 1) {
+        await ask(batch.slice(0, batch.length / 2))
+        await ask(batch.slice(batch.length / 2))
+        return
+      }
+      batch.forEach((b, j) => {
+        const p = d[`r${j}`]
+        if (!p) return
+        for (const f of p.forks.nodes) {
+          if (f.isPrivate || seen.has(repoKey(f.nameWithOwner))) continue
+          seen.add(repoKey(f.nameWithOwner))
+          out.push({ repo: f.nameWithOwner, parent: p.nameWithOwner, parentBranch: p.defaultBranchRef?.name, branch: f.defaultBranchRef?.name, createdAt: f.createdAt, pushedAt: f.pushedAt, releases: f.releases.totalCount })
+          if (f.forkCount) next.push({ repo: f.nameWithOwner, after: null })
+        }
+        if (p.forks.pageInfo.hasNextPage) next.push({ repo: b.repo, after: p.forks.pageInfo.endCursor })
+      })
+    }
+    for (let i = 0; i < todo.length; i += 4) {
+      await ask(todo.slice(i, i + 4))
+      if (i % 100 === 0) log(`  forks: ${out.length} so far (${todo.length - i} repos left this round)`)
+    }
+    todo = next
+  }
+  return out
+}
+
+// how many commits a fork's main branch has that its parent's doesn't (null: GitHub couldn't say)
+async function aheadBy(f) {
+  if (!f.branch || !f.parentBranch) return null
+  const [owner, name] = f.repo.split('/')
+  const r = await ghRest(`/repos/${f.parent}/compare/${encodeURIComponent(f.parentBranch)}...${owner}:${name}:${encodeURIComponent(f.branch)}?per_page=1`)
+  return r ? r.ahead_by : null
+}
+
+// repos to look at: { src: 'github', repo, name, found: { fork, ahead } }. skip: repos not to bother with (dismissed)
+async function fromGithub(roots, skip) {
+  if (!TOKEN) {
+    log('(no GITHUB_TOKEN, skipping GitHub discovery)')
+    return []
+  }
+  const cacheFile = new URL('discover.json', OUT)
+  const cache = JSON.parse(await readFile(cacheFile, 'utf8').catch(() => '{}'))
+  const hits = await searchRepos()
+  log(`  github search: ${hits.size} repos`)
+  const forks = await forksOf([...new Set([...roots, ...[...hits].filter(([, n]) => n > 0).map(([repo]) => repo)])])
+  // a fork that was never pushed to, or never made a release, has nothing to install: not even worth asking
+  const maybe = forks.filter((f) => !skip.has(repoKey(f.repo)) && f.releases > 0 && f.pushedAt > f.createdAt)
+  log(`  github forks: ${forks.length}, with a release of their own: ${maybe.length}`)
+  const items = []
+  for (const f of maybe) {
+    const c = cache[repoKey(f.repo)]
+    const ahead = c && c.pushedAt === f.pushedAt ? c.ahead : await aheadBy(f)
+    if (ahead != null) cache[repoKey(f.repo)] = { pushedAt: f.pushedAt, ahead }
+    if (!ahead) continue // nothing of its own (or unknown): not a separate firmware
+    items.push({ src: 'github', repo: f.repo, name: f.repo.split('/')[1], kind: 'firmware', links: [], found: { fork: f.parent, ahead } })
+  }
+  log(`  github forks with changes of their own: ${items.length}`)
+  for (const repo of hits.keys()) if (!skip.has(repoKey(repo))) items.push({ src: 'github', repo, name: repo.split('/')[1], kind: 'firmware', links: [], found: {} })
+  await writeFile(cacheFile, JSON.stringify(cache) + '\n')
+  return items
 }
 
 const BASE_REPO_OF = Object.fromEntries(Object.entries(BASE_INFO).map(([k, v]) => [k, v.repo]))
@@ -349,7 +508,7 @@ const rel = (r) =>
 // --- merge ----------------------------------------------------------------
 
 // sources in order of trust for text fields
-const RANK = { user: 0, firmwarehub: 1, 'fm1-editor': 2, fmdb: 3 }
+const RANK = { user: 0, firmwarehub: 1, 'fm1-editor': 2, fmdb: 3, github: 4 }
 
 function keyOf(e) {
   if (e.repo) return repoKey(e.repo)
@@ -445,7 +604,8 @@ function merge(items) {
     _page: items.flatMap((i) => i.pageFiles || []),
     _hubPkg: items.find((i) => i.hubPkg)?.hubPkg,
     _versions: dedupeVersions([...items.flatMap((i) => i.history || []), ...releases]),
-    _ids: items.map((i) => i.srcId).filter(Boolean)
+    _ids: items.map((i) => i.srcId).filter(Boolean),
+    _found: items.find((i) => i.found)?.found
   }
 }
 
@@ -457,6 +617,7 @@ function applyGithub(e, g) {
   e.license = e.license || (g.licenseInfo?.spdxId !== 'NOASSERTION' ? g.licenseInfo?.spdxId : null) || null
   e.author = e.author || g.owner.login
   if (g.isArchived) e.archived = true
+  e._stars = g.stargazerCount
   // lineage on GitHub (made from a base's template, or a fork of it) beats what the other hubs said
   const base = baseOfRepo(g.templateRepository?.nameWithOwner, g.parent?.nameWithOwner)
   if (base && repoKey(e.repo) !== repoKey(BASE_REPO_OF[base])) e.base = base
@@ -547,7 +708,10 @@ async function checkPackages(entries) {
   const cacheFile = new URL('pkgcache.json', OUT)
   for (const [url, c] of Object.entries(JSON.parse(await readFile(cacheFile, 'utf8').catch(() => '{}')))) PKG.set(url, c)
   const live = await get(`${SITE}/catalog.json`)
-  for (const f of [...(live?.firmwares || []), ...(live?.stock ? [live.stock] : [])]) seedPkg(f.pkg, f)
+  for (const f of [...(live?.firmwares || []), ...(live?.stock ? [live.stock] : [])]) {
+    seedPkg(f.pkg, f)
+    if (f.sha256) LISTED_SHA.add(f.sha256)
+  }
 
   // the latest release (and pre-release) of every entry
   const todo = new Map()
@@ -605,6 +769,9 @@ function listed() {
     if (!r.repo && !e.repo && e.name) for (const k of looseKeys(e)) db.loose.add(k)
     db.keys.set(e.repo ? repoKey(e.repo) : keyOf({ name: e.name || r.id, homepage: e.homepage, links: e.links }), r.id)
   }
+  // repos the admins dismissed from the found list (the table is new: none if it isn't there yet)
+  const found = wrangler(['d1', 'execute', DB_NAME, '--remote', '--json', '--command', 'SELECT repo FROM found WHERE dismissed IS NOT NULL'], { quiet: true, allowFail: true })
+  db.dismissed = new Set(found ? (parseJson(found)[0]?.results || []).map((r) => r.repo) : [])
   return db
 }
 
@@ -627,9 +794,12 @@ async function main() {
   log('fetching sources…')
   const [hub, fmdb, ed] = await Promise.all([fromHub(), fromFmdb(), fromFm1Editor()])
   log(`  firmwarehub ${hub.length}, fmdb ${fmdb.length}, fm1-editor ${ed.length}`)
+  // (every listing's forks too, so the walk starts from the bases and from everything listed)
+  const roots = [...new Set([...Object.values(BASE_REPO_OF).filter(Boolean), ...liveRepos, ...[...hub, ...ed, ...fmdb].map((i) => i.repo).filter(Boolean)])]
+  const found = await fromGithub(roots, db?.dismissed || new Set())
 
   const groups = new Map()
-  const withRepo = [...hub, ...ed, ...fmdb].filter((i) => i.repo)
+  const withRepo = [...hub, ...ed, ...fmdb, ...found].filter((i) => i.repo)
   for (const item of withRepo) {
     const k = keyOf(item)
     if (!groups.has(k)) groups.set(k, [])
@@ -676,12 +846,35 @@ async function main() {
   if (!FULL) renamed.clear()
   let entries = [...canon.entries()].map(([key, items]) => ({ key, ...merge(items) }))
   // repos GitHub no longer has, and only one source vouches for, are dropped
-  for (const e of entries) if (e.repo && gh[e.key] === false && e.sources.every((s) => s === 'user' || s === 'fmdb')) log(`  skip ${e.repo}: gone from GitHub (deleted or private)`)
-  entries = entries.filter((e) => !(e.repo && gh[e.key] === false && e.sources.every((s) => s === 'user' || s === 'fmdb')))
+  for (const e of entries) if (e.repo && gh[e.key] === false && e.sources.every((s) => s === 'user' || s === 'fmdb' || s === 'github')) log(`  skip ${e.repo}: gone from GitHub (deleted or private)`)
+  entries = entries.filter((e) => !(e.repo && gh[e.key] === false && e.sources.every((s) => s === 'user' || s === 'fmdb' || s === 'github')))
   for (const e of entries) applyGithub(e, gh[e.key])
   await findHostedPackages(entries, gh)
 
   await checkPackages(entries)
+
+  // what GitHub discovery alone found gets listed only with an installable package of its own; the rest waits in
+  // the found list for an admin
+  // (packages for the FM-1 and the SMK-37 family only: the same chip runs other makers' gear too)
+  const pkgs = (e) => [...(e.release?.assets || []), ...(e.prerelease?.assets || [])].filter((a) => a.sha256 && a.product && deviceOf(a.product))
+  for (const e of entries) if (!e.sources.every((s) => s === 'github')) for (const a of pkgs(e)) LISTED_SHA.add(a.sha256)
+  const waiting = []
+  entries = entries.filter((e) => {
+    if (!e.sources.every((s) => s === 'github') || db?.repos.has(e.key)) return true
+    const mine = pkgs(e)
+    // a fork under its parent's own name is most likely someone's build of it, not a firmware of its own
+    const fork = e._found?.fork
+    const why = !e.release && !e.prerelease ? 'no release' : !mine.length ? 'no installable package in its latest release' : mine.every((a) => LISTED_SHA.has(a.sha256)) ? 'its package is the same file as a listed one' : fork && fork.split('/')[1].toLowerCase() === e.key.split('/')[1] ? `a fork under its parent's name: maybe someone's own build of ${fork}` : null
+    if (!why) {
+      for (const a of mine) LISTED_SHA.add(a.sha256)
+      return true
+    }
+    // (with nothing released, only repos that say what they're for: searches match plenty of unrelated ones)
+    if (why === 'no release' && !ABOUT_FM1.test(`${e.key} ${e.name} ${e.description || ''}`)) return false
+    waiting.push({ e, why })
+    return false
+  })
+  log(`  github discovery: ${entries.filter((e) => e.sources.every((s) => s === 'github')).length} to list, ${waiting.length} for the found list`)
 
   // assign ids
   const versions = new Map()
@@ -702,6 +895,8 @@ async function main() {
     versions.set(id, { list: e._versions || [], src: e._vsrc || e.sources[0] })
     delete e._versions
     delete e._vsrc
+    delete e._found
+    delete e._stars
     for (const k of Object.keys(e)) if (e[k] === undefined || e[k] === null) delete e[k]
   }
   entries.sort((a, b) => a.id.localeCompare(b.id))
@@ -742,6 +937,26 @@ async function main() {
     }
   }
   log(`  ${nv} versions`)
+  // the found list: refreshed every run (dismissed stays dismissed), and anything listed by now leaves it
+  for (const { e, why } of waiting) {
+    const r = e.prerelease && (!e.release || e.prerelease.date > e.release.date) ? e.prerelease : e.release
+    const info = {
+      name: e.name,
+      description: e.description || undefined,
+      author: e.author || undefined,
+      kind: (e.release?.assets || []).length ? 'firmware' : undefined,
+      base: e.base || undefined,
+      fork: e._found?.fork,
+      ahead: e._found?.ahead,
+      stars: e._stars || undefined,
+      added: e.added || undefined,
+      updated: e.updated || undefined,
+      archived: e.archived || undefined,
+      release: r ? { version: r.version, date: r.date, url: r.url, prerelease: r.prerelease, files: (r.assets || []).map((a) => a.name) } : undefined
+    }
+    sql.push(`INSERT INTO found (repo, info, why, first, seen) VALUES (${q(e.key)}, ${q(JSON.stringify(info))}, ${q(why)}, ${q(now)}, ${q(now)}) ON CONFLICT(repo) DO UPDATE SET info = excluded.info, why = excluded.why, seen = excluded.seen;`)
+  }
+  sql.push('DELETE FROM found WHERE repo IN (SELECT repo FROM entries WHERE repo IS NOT NULL);')
   await writeFile(new URL('auto.sql', OUT), sql.join('\n') + '\n')
   const by = (k) => entries.filter(k).length
   if (!FULL) log(entries.length ? `${entries.length} new: ${entries.map((e) => e.name).join(', ')}` : 'nothing new to add')

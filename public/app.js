@@ -950,13 +950,67 @@ function mine() {
         <span class="actions"><a class="btn small" href="#/p/${esc(e.id)}">View</a>${canEdit(e) ? `<a class="btn small primary" href="#/edit/${esc(e.id)}">Edit</a>` : ''}</span></li>`
       )
       .join('')}</ul>
-    <div class="formbar"><button class="btn" type="button" id="logout">Sign out</button>${ME.user.admin ? '<a class="btn" href="#/admin">Activity</a>' : ''}<a class="btn primary" href="#/new">+ Add a project</a></div>`
+    <div class="formbar"><button class="btn" type="button" id="logout">Sign out</button>${ME.user.admin ? '<a class="btn" href="#/admin">Activity</a><a class="btn" href="#/found">Found</a>' : ''}<a class="btn primary" href="#/new">+ Add a project</a></div>`
   )
   $('#logout').onclick = async () => {
     await api('/auth/logout', { method: 'POST' })
     ME = { user: null, manages: [] }
     account()
     dlg.close()
+  }
+}
+
+// --- found on GitHub (admins) ----------------------------------------------
+// what the collector found but didn't list (no installable package yet, a copy of a listed build, ...)
+
+async function foundSheet() {
+  if (!ME.user?.admin) return ME.user ? mine() : signInSheet('Admins only.')
+  open('<h2 id="dlg-title">Found on GitHub</h2><p class="by">Loading…</p>')
+  dlg.classList.add('wide')
+  let a
+  try {
+    a = await api('/api/admin/found')
+  } catch (err) {
+    return open(`<h2 id="dlg-title">Found on GitHub</h2><p class="note">${esc(err.message)}</p>`)
+  }
+  if (location.hash !== '#/found') return
+  const ago = (d) => (d ? `<span title="${esc(d)}">${when(d)}</span>` : '')
+  const row = (f) => {
+    const i = f.info
+    const r = i.release
+    const fork = i.fork ? `fork of <a href="https://github.com/${esc(i.fork)}" target="_blank" rel="noopener">${esc(i.fork)}</a>, ${i.ahead} ${i.ahead === 1 ? 'commit' : 'commits'} of its own` : ''
+    return `<tr data-repo="${esc(f.repo)}">
+      <td><a href="https://github.com/${esc(f.repo)}" target="_blank" rel="noopener"><b>${esc(i.name || f.repo)}</b></a><br><small class="by">${esc(f.repo)}${i.stars ? ` · ★${i.stars}` : ''}${i.archived ? ' · archived' : ''}</small>${i.description ? `<br><small>${esc(i.description)}</small>` : ''}${fork ? `<br><small class="by">${fork}</small>` : ''}</td>
+      <td>${esc(f.why)}${r ? `<br><small class="by"><a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.version)}</a>${r.prerelease ? ' (pre-release)' : ''} ${ago(r.date)}${r.files?.length ? `: ${r.files.map(esc).join(', ')}` : ''}</small>` : ''}</td>
+      <td>${ago(i.updated)}</td>
+      <td class="actions"><select aria-label="List as"><option value="firmware"${i.kind === 'tool' ? '' : ' selected'}>Firmware</option><option value="tool"${i.kind === 'tool' ? ' selected' : ''}>Tool</option></select>
+        <button type="button" class="btn small primary" data-act="list">List</button><button type="button" class="btn small" data-act="dismiss">Dismiss</button></td>
+    </tr>`
+  }
+  open(
+    `<h2 id="dlg-title">Found on GitHub</h2>
+    <p class="by">Only admins can see this. The sync lists what it finds when the latest release has an installable package of its own; these are the rest. Forks without commits of their own aren't here at all.${a.dismissed ? ` ${a.dismissed} dismissed.` : ''}</p>
+    ${a.found.length ? `<div class="tbl"><table><thead><tr><th>Repo</th><th>Why it isn't listed</th><th>Updated</th><th></th></tr></thead><tbody>${a.found.map(row).join('')}</tbody></table></div>` : '<p>Nothing waiting.</p>'}
+    <p class="fl-status" role="status"></p>`
+  )
+  const say = (t) => ($('.fl-status', dlg).textContent = t)
+  for (const b of dlg.querySelectorAll('[data-act]')) {
+    b.onclick = async () => {
+      const tr = b.closest('tr')
+      const repo = tr.dataset.repo
+      for (const x of tr.querySelectorAll('button, select')) x.disabled = true
+      try {
+        const e = await api('/api/admin/found', { method: 'POST', body: JSON.stringify({ repo, action: b.dataset.act, kind: $('select', tr).value }) })
+        if (b.dataset.act === 'list') {
+          say(`Listed ${e.name}.`)
+          await reload()
+        } else say(`Dismissed ${repo}.`)
+        tr.remove()
+      } catch (err) {
+        say(err.message)
+        for (const x of tr.querySelectorAll('button, select')) x.disabled = false
+      }
+    }
   }
 }
 
@@ -1275,6 +1329,7 @@ function route() {
   else if (h === '#/new') form(null)
   else if (h === '#/mine') mine()
   else if (h === '#/admin') activitySheet()
+  else if (h === '#/found') foundSheet()
   else if (h === '#/make') makeSheet()
   else if ((m = h.match(/^#\/try\/([a-z0-9-]+)(?:\/(fm1|smk37))?/))) trySheet(find(m[1]), m[2])
   else if (listingPath() && find(listingPath())) detail(find(listingPath()))
