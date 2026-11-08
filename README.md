@@ -63,7 +63,7 @@ Firmware the [FM-1 emulator](https://github.com/joakimeriksson/fm1-emu) (MIT) ha
 
 Owners can turn it off ("▶ Try in the emulator" in the edit form, `"emulator": false` in the API) if they'd rather send people to their own website or demo; their own "Try it" link then shows instead.
 
-The emulator can't load a firmware from a URL yet, only from its own lists. So firmware it doesn't have can't be tried here until it adds it (or gains a URL option).
+Firmware the emulator doesn't list gets **▶ Try** too, once the emulator plays a package from a link ([fm1-emu#158](https://github.com/joakimeriksson/fm1-emu/pull/158), `?package=<url>`): the site checks its live `main.js` for that, and then plays the latest build for each model through `/dl` (CORS on). Until then, only its own lists can be tried.
 
 ### Install from the browser, and /rescue
 

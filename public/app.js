@@ -192,6 +192,8 @@ const tryIt = (e) => e.links.find((l) => /try|play|emulator|browser/i.test(l.lab
 // live from its site, so firmware it adds later gets a "Try" button here without anyone doing anything.
 const EMU = 'https://joakimeriksson.github.io/fm1-emu/'
 let EMUMAP = null // repo (lowercase) or id -> { fm1: { id, version }, smk37: { id, version } }
+// whether it plays a package from a link (?package=URL, fm1-emu#158): then the firmware it doesn't list plays from /dl
+let EMULINK = false
 const repoOfUrl = (u) =>
   String(u || '')
     .replace(/^https:\/\/github\.com\//, '')
@@ -201,7 +203,14 @@ const repoOfUrl = (u) =>
 
 async function loadEmulator() {
   try {
-    const [fm1, smk] = await Promise.all([fetch(EMU + 'firmwares.json').then((r) => r.json()), fetch(EMU + 'smk37/firmwares.json').then((r) => r.json())])
+    const [fm1, smk, main] = await Promise.all([
+      fetch(EMU + 'firmwares.json').then((r) => r.json()),
+      fetch(EMU + 'smk37/firmwares.json').then((r) => r.json()),
+      fetch(EMU + 'main.js')
+        .then((r) => r.text())
+        .catch(() => '')
+    ])
+    EMULINK = /params\.get\("package"\)|linkedFirmware/.test(main)
     const map = new Map()
     const put = (key, dev, f) => {
       if (!key) return
@@ -244,13 +253,22 @@ async function loadEmulator() {
 // what the emulator can play of this listing (null: nothing, or the owner turned it off)
 function emuFor(e) {
   if (!EMUMAP || e.kind !== 'firmware' || e.emulator === false) return null
-  const m = (e.repo && EMUMAP.get(e.repo.toLowerCase())) || EMUMAP.get('id:' + e.id)
-  if (!m) return null
+  const m = (e.repo && EMUMAP.get(e.repo.toLowerCase())) || EMUMAP.get('id:' + e.id) || {}
   const out = {}
-  for (const d of ['fm1', 'smk37']) if (m[d] && e.devices.includes(d)) out[d] = m[d]
+  for (const d of ['fm1', 'smk37']) {
+    if (!e.devices.includes(d)) continue
+    if (m[d]) out[d] = m[d]
+    else if (EMULINK) {
+      // not in its lists: the latest build for that model, through /dl (CORS on, checked like an install)
+      const p = latestPick(e, { model: EMUMODEL[d] })
+      const pkg = p.pkg || p.choices?.[0]
+      if (pkg) out[d] = { pkg: location.origin + pkg.url, name: `${e.name} ${(p.note ? e.prerelease : e.release)?.version || ''}`.trim(), version: '' }
+    }
+  }
   return Object.keys(out).length ? out : null
 }
-const emuUrl = (dev, id, embed) => `${EMU}${dev === 'smk37' ? 'smk37/' : ''}?fw=${encodeURIComponent(id)}${embed ? '&embed=1' : ''}`
+const EMUMODEL = { fm1: 'FM-1', smk37: 'SMK-37 Pro' }
+const emuUrl = (dev, f, embed) => `${EMU}${dev === 'smk37' ? 'smk37/' : ''}?${f.pkg ? `package=${encodeURIComponent(f.pkg)}&name=${encodeURIComponent(f.name)}` : `fw=${encodeURIComponent(f.id)}`}${embed ? '&embed=1' : ''}`
 
 // a card's buttons: the maker's website leads when there is one, then how to get it (installer or files),
 // a browser demo, and the source. The same page never gets two buttons.
@@ -865,10 +883,10 @@ function trySheet(e, dev) {
   const older = f.version && latest && f.version.replace(/^v(?=\d)/, '') !== latest
   open(
     `<h2 id="dlg-title">Try ${esc(e.name)}</h2>
-    <p class="by">The real firmware, running in your browser in the <a href="https://github.com/joakimeriksson/fm1-emu" target="_blank" rel="noopener">FM-1 emulator</a>. Press Start, then play it with your mouse, computer keyboard or a MIDI keyboard.${older ? ` The emulator has version ${esc(f.version)}; the latest is ${esc(e.release.version)}.` : ''}</p>
+    <p class="by">The real firmware, running in your browser in the <a href="https://github.com/joakimeriksson/fm1-emu" target="_blank" rel="noopener">FM-1 emulator</a>. Press Start, then play it with your mouse, computer keyboard or a MIDI keyboard.${older ? ` The emulator has version ${esc(f.version)}; the latest is ${esc(e.release.version)}.` : ''}${f.pkg ? ` It isn't in the emulator's own list yet, so it may not run there.` : ''}</p>
     ${devs.length > 1 ? `<div class="seg emu-devs">${devs.map((d) => `<a class="${d === dev ? 'on' : ''}" href="#/try/${esc(e.id)}/${d}">${esc(DATA.devices[d] || d)}</a>`).join('')}</div>` : ''}
-    <div class="emuframe${dev === 'smk37' ? ' smk' : ''}"><iframe src="${esc(emuUrl(dev, f.id, true))}" title="${esc(e.name)} in the FM-1 emulator" allow="autoplay; midi; fullscreen" loading="eager"></iframe></div>
-    <div class="actions">${ext(emuUrl(dev, f.id, false), 'Open the full emulator ↗', 'btn')}${own ? ext(own.url, `${own.label} (the maker's) ↗`, 'btn') : ''}<a class="btn ghost" href="#/p/${esc(e.id)}">Back to ${esc(e.name)}</a></div>`,
+    <div class="emuframe${dev === 'smk37' ? ' smk' : ''}"><iframe src="${esc(emuUrl(dev, f, true))}" title="${esc(e.name)} in the FM-1 emulator" allow="autoplay; midi; fullscreen" loading="eager"></iframe></div>
+    <div class="actions">${ext(emuUrl(dev, f, false), 'Open the full emulator ↗', 'btn')}${own ? ext(own.url, `${own.label} (the maker's) ↗`, 'btn') : ''}<a class="btn ghost" href="#/p/${esc(e.id)}">Back to ${esc(e.name)}</a></div>`,
     hue(e.id)
   )
   dlg.classList.add('wide')
