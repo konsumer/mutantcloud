@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Collects FM1 / SMK-37 firmwares + tools from the other hubs and GitHub, merges them,
+// Collects FM1 / SMK-37 firmwares + tools from the other hubs, GitHub and Reddit, merges them,
 // and writes data/auto.json + data/auto.sql (an upsert of the "auto" column only, so
 // anything people edited by hand is never touched).
 //
@@ -311,6 +311,96 @@ async function fromFm1Editor() {
   return out
 }
 
+// --- Reddit ---------------------------------------------------------------
+// Makers announce firmware on the FM-1 and SMK-37 subreddits. Each post's GitHub repos (and github.io pages, which
+// are user/repo) are leads, checked exactly like GitHub discovery: listed only with a release of its own that isn't a
+// listed file. Leads are kept for a while (data/reddit.json), so a "coming soon" post is listed when it ships.
+
+const SUBREDDITS = ['MVaveFM1', 'MvaveSmk']
+const LEAD_DAYS = 90
+// github.com paths that aren't repos
+const NOT_OWNER = /^(orgs|sponsors|settings|features|topics|marketplace|apps|login|about|collections|notifications|users|enterprise|pricing|search|trending)$/i
+
+// the repo a URL is about: github.com/user/repo/..., user.github.io/repo/...
+function repoOfUrl(u) {
+  let p
+  try {
+    p = new URL(u)
+  } catch {
+    return null
+  }
+  const host = p.hostname.toLowerCase().replace(/^www\./, '')
+  const parts = p.pathname.split('/').filter(Boolean)
+  if (host === 'github.com') return parts.length >= 2 && !NOT_OWNER.test(parts[0]) ? parseRepo(`${parts[0]}/${parts[1]}`) : null
+  const io = host.match(/^([a-z0-9-]+)\.github\.io$/)
+  if (io && parts[0]) return parseRepo(`${io[1]}/${parts[0]}`)
+  return null
+}
+
+// one page of a subreddit's newest posts (the public feed; the JSON API wants a login): [{ id, url, date, links }]
+async function redditPage(sub, after) {
+  const url = `https://www.reddit.com/r/${sub}/new/.rss?limit=100${after ? `&after=${after}` : ''}`
+  for (let tries = 0; tries < 3; tries++) {
+    const r = await fetch(url, { headers: UA, signal: AbortSignal.timeout(30000) }).catch(() => null)
+    if (r?.ok) {
+      const x = await r.text()
+      return [...x.matchAll(/<entry>([\s\S]*?)<\/entry>/g)].map(([, e]) => {
+        const html = decodeEntities(e.match(/<content[^>]*>([\s\S]*?)<\/content>/)?.[1] || '')
+        return {
+          id: e.match(/<id>(t3_\w+)<\/id>/)?.[1],
+          url: decodeEntities(e.match(/<link href="([^"]+)"/)?.[1] || ''),
+          date: day(e.match(/<published>([^<]+)/)?.[1] || e.match(/<updated>([^<]+)/)?.[1]),
+          links: [...html.matchAll(/href="([^"]+)"/g)].map((m) => decodeEntities(m[1]))
+        }
+      })
+    }
+    // too many requests: wait as long as Reddit asks (at most a minute), then once more
+    if (r?.status !== 429 && r) break
+    const wait = Math.min(60, Number(r?.headers.get('retry-after')) || 20)
+    log(`  reddit: ${r ? 'rate limited' : 'no answer'}, waiting ${wait} s`)
+    await sleep(wait * 1000)
+  }
+  log(`! could not fetch ${url}`)
+  return null
+}
+
+const decodeEntities = (s) =>
+  s
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&#x27;/g, "'")
+    .replace(/&amp;/g, '&')
+
+async function fromReddit() {
+  const cacheFile = new URL('reddit.json', OUT)
+  const leads = JSON.parse(await readFile(cacheFile, 'utf8').catch(() => '{}'))
+  let posts = 0
+  for (const sub of SUBREDDITS) {
+    let after = null
+    // the newest 100 is a few days of posts (the sync runs daily); --full looks further back
+    for (let page = 0; page < (FULL ? 10 : 1); page++) {
+      if (posts) await sleep(3000) // gently: Reddit limits how often its feed is read
+      const list = await redditPage(sub, after)
+      if (!list?.length) break
+      posts += list.length
+      for (const p of list) {
+        for (const repo of new Set(p.links.map(repoOfUrl).filter(Boolean))) {
+          const k = repoKey(repo)
+          if (!leads[k] || leads[k].seen < p.date) leads[k] = { repo, post: p.url, seen: p.date }
+        }
+      }
+      after = list[list.length - 1].id
+      if (!after) break
+    }
+  }
+  const since = day(new Date(Date.now() - LEAD_DAYS * 864e5).toISOString())
+  for (const [k, l] of Object.entries(leads)) if (l.seen < since) delete leads[k]
+  await writeFile(cacheFile, JSON.stringify(leads, null, 1) + '\n')
+  log(`  reddit: ${posts} posts, ${Object.keys(leads).length} repos mentioned (last ${LEAD_DAYS} days)`)
+  return Object.values(leads).map((l) => ({ src: 'reddit', repo: l.repo, name: l.repo.split('/')[1], kind: 'firmware', links: [], found: { reddit: l.post } }))
+}
+
 // --- GitHub ---------------------------------------------------------------
 
 async function github(repos) {
@@ -534,7 +624,10 @@ const rel = (r) =>
 // --- merge ----------------------------------------------------------------
 
 // sources in order of trust for text fields
-const RANK = { user: 0, firmwarehub: 1, 'fm1-editor': 2, fmdb: 3, github: 4 }
+const RANK = { user: 0, firmwarehub: 1, 'fm1-editor': 2, fmdb: 3, github: 4, reddit: 5 }
+// found by us (GitHub discovery, Reddit), not listed on another hub
+const FOUND = new Set(['github', 'reddit'])
+const foundOnly = (e) => e.sources.every((s) => FOUND.has(s))
 
 function keyOf(e) {
   if (e.repo) return repoKey(e.repo)
@@ -792,12 +885,13 @@ function listed() {
   }
   if (out === null) return null
   const rows = parseJson(out)[0]?.results || []
-  const db = { ids: new Set(), repos: new Map(), loose: new Set(), keys: new Map() }
+  const db = { ids: new Set(), repos: new Map(), loose: new Set(), keys: new Map(), pages: new Set() }
   for (const r of rows) {
     const e = { ...JSON.parse(r.auto || '{}'), ...JSON.parse(r.data || '{}') }
     db.ids.add(r.id)
     for (const repo of [r.repo, e.repo].filter(Boolean)) db.repos.set(repoKey(repo), r.id)
     if (!r.repo && !e.repo && e.name) for (const k of looseKeys(e)) db.loose.add(k)
+    if (!r.repo && !e.repo) for (const u of [e.homepage, ...(e.links || []).map((l) => l.url)]) if (u && repoOfUrl(u)) db.pages.add(repoKey(repoOfUrl(u)))
     db.keys.set(e.repo ? repoKey(e.repo) : keyOf({ name: e.name || r.id, homepage: e.homepage, links: e.links }), r.id)
   }
   return db
@@ -824,7 +918,7 @@ async function main() {
   log(`  firmwarehub ${hub.length}, fmdb ${fmdb.length}, fm1-editor ${ed.length}`)
   // (every listing's forks too, so the walk starts from the bases and from everything listed)
   const roots = [...new Set([...Object.values(BASE_REPO_OF).filter(Boolean), ...liveRepos, ...[...hub, ...ed, ...fmdb].map((i) => i.repo).filter(Boolean)])]
-  const found = await fromGithub(roots)
+  const found = [...(await fromGithub(roots)), ...(await fromReddit())]
 
   const groups = new Map()
   const withRepo = [...hub, ...ed, ...fmdb, ...found].filter((i) => i.repo)
@@ -874,8 +968,8 @@ async function main() {
   if (!FULL) renamed.clear()
   let entries = [...canon.entries()].map(([key, items]) => ({ key, ...merge(items) }))
   // repos GitHub no longer has, and only one source vouches for, are dropped
-  for (const e of entries) if (e.repo && gh[e.key] === false && e.sources.every((s) => s === 'user' || s === 'fmdb' || s === 'github')) log(`  skip ${e.repo}: gone from GitHub (deleted or private)`)
-  entries = entries.filter((e) => !(e.repo && gh[e.key] === false && e.sources.every((s) => s === 'user' || s === 'fmdb' || s === 'github')))
+  for (const e of entries) if (e.repo && gh[e.key] === false && e.sources.every((s) => s === 'user' || s === 'fmdb' || FOUND.has(s))) log(`  skip ${e.repo}: gone from GitHub (deleted or private)`)
+  entries = entries.filter((e) => !(e.repo && gh[e.key] === false && e.sources.every((s) => s === 'user' || s === 'fmdb' || FOUND.has(s))))
   for (const e of entries) applyGithub(e, gh[e.key])
   await findHostedPackages(entries, gh)
 
@@ -890,7 +984,7 @@ async function main() {
   // (packages for the FM-1 and the SMK-37 family only: the same chip runs other makers' gear too)
   const pkgs = (e) => [...(e.release?.assets || []), ...(e.prerelease?.assets || [])].filter((a) => a.sha256 && a.product && deviceOf(a.product))
   for (const e of entries) {
-    if (e.sources.every((s) => s === 'github')) continue
+    if (foundOnly(e)) continue
     for (const a of pkgs(e)) {
       LISTED_SHA.add(a.sha256)
       addProduct(e.repo, a.product)
@@ -902,7 +996,9 @@ async function main() {
     return false
   }
   entries = entries.filter((e) => {
-    if (!e.sources.every((s) => s === 'github') || db?.repos.has(e.key)) return true
+    if (!foundOnly(e) || db?.repos.has(e.key)) return true
+    // (a listing without a repo whose page is this repo's github.io site is this firmware)
+    if (db?.pages.has(e.key)) return skip('listed already, by its page')
     const fork = e._found?.fork
     const sameName = fork && fork.split('/')[1].toLowerCase() === e.key.split('/')[1]
     const files = [...(e.release?.assets || []), ...(e.prerelease?.assets || [])]
@@ -935,9 +1031,9 @@ async function main() {
     if (!e.devices.length) e.devices = ['fm1']
     return true
   })
-  const listedNow = entries.filter((e) => e.sources.every((s) => s === 'github'))
+  const listedNow = entries.filter(foundOnly)
   log(
-    `  github discovery: listing ${listedNow.filter((e) => e.kind === 'firmware').length} firmwares and ${listedNow.filter((e) => e.kind === 'tool').length} tools; skipped ${
+    `  github + reddit discovery: listing ${listedNow.filter((e) => e.kind === 'firmware').length} firmwares and ${listedNow.filter((e) => e.kind === 'tool').length} tools; skipped ${
       Object.entries(skipped)
         .map(([k, n]) => `${n} (${k})`)
         .join(', ') || 'none'
