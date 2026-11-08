@@ -59,11 +59,11 @@ Each listing has a **main tag** (`primaryTag`): the owner's pick, else the first
 
 ### Try it in the browser
 
-Firmware the [FM-1 emulator](https://github.com/joakimeriksson/fm1-emu) (MIT) has in its own lists gets a **▶ Try** button. It opens `/#/try/<id>`, a popup with the emulator embedded (`?fw=<its id>&embed=1`), with FM1 and SMK-37 tabs when it has both. The site reads the emulator's lists live (`firmwares.json`, `smk37/firmwares.json`) and matches them to listings by repo, so firmware the emulator adds later gets the button with nobody doing anything. If the emulator's copy is older than the latest release, the popup says so.
+Every firmware with an FM1 or SMK-37 package gets a **▶ Try** button. It opens `/#/try/<id>`, a popup with the [FM-1 emulator](https://github.com/joakimeriksson/fm1-emu) (MIT) embedded, with FM1 and SMK-37 tabs when it has both. It plays the listing's own latest build, through `/dl` (CORS on, checked like an install), never the emulator's copy, which is often an older version.
+
+The emulator takes a package by URL (`?package=<url>&name=…&embed=1`) in [konsumer's fork](https://github.com/konsumer/fm1-emu), served at `konsumer.js.org/fm1-emu/` ([upstream PR](https://github.com/joakimeriksson/fm1-emu/pull/158)). The fork merges upstream's master every day (`.github/workflows/sync.yml`) and redeploys, so it keeps upstream's fixes.
 
 Owners can turn it off ("▶ Try in the emulator" in the edit form, `"emulator": false` in the API) if they'd rather send people to their own website or demo; their own "Try it" link then shows instead.
-
-Firmware the emulator doesn't list gets **▶ Try** too, once the emulator plays a package from a link ([fm1-emu#158](https://github.com/joakimeriksson/fm1-emu/pull/158), `?package=<url>`): the site checks its live `main.js` for that, and then plays the latest build for each model through `/dl` (CORS on). Until then, only its own lists can be tried.
 
 ### Install from the browser, and /rescue
 

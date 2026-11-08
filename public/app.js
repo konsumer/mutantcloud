@@ -188,87 +188,25 @@ function getIt(e) {
 const tryIt = (e) => e.links.find((l) => /try|play|emulator|browser/i.test(l.label))
 
 // --- the web emulator (joakimeriksson/fm1-emu, MIT) ------------------------
-// It plays the firmwares in its own lists (?fw=<id>; ?embed=1 for just the device). Those lists are read
-// live from its site, so firmware it adds later gets a "Try" button here without anyone doing anything.
-const EMU = 'https://joakimeriksson.github.io/fm1-emu/'
-let EMUMAP = null // repo (lowercase) or id -> { fm1: { id, version }, smk37: { id, version } }
-// whether it plays a package from a link (?package=URL, fm1-emu#158): then the firmware it doesn't list plays from /dl
-let EMULINK = false
-const repoOfUrl = (u) =>
-  String(u || '')
-    .replace(/^https:\/\/github\.com\//, '')
-    .split(/\/(tree|blob)\//)[0]
-    .replace(/\/+$/, '')
-    .toLowerCase()
+// Every firmware with a package plays its own latest build (through /dl: CORS on, checked like an install),
+// never the emulator's copy (often an older version). The emulator takes a package by URL (?package=, fm1-emu#158)
+// in konsumer's fork, which merges upstream daily; ?embed=1 shows just the device.
+const EMU = 'https://konsumer.js.org/fm1-emu/'
+const EMUMODEL = { fm1: 'FM-1', smk37: 'SMK-37 Pro' }
 
-async function loadEmulator() {
-  try {
-    const [fm1, smk, main] = await Promise.all([
-      fetch(EMU + 'firmwares.json').then((r) => r.json()),
-      fetch(EMU + 'smk37/firmwares.json').then((r) => r.json()),
-      fetch(EMU + 'main.js')
-        .then((r) => r.text())
-        .catch(() => '')
-    ])
-    EMULINK = /params\.get\("package"\)|linkedFirmware/.test(main)
-    const map = new Map()
-    const put = (key, dev, f) => {
-      if (!key) return
-      const m = map.get(key) || {}
-      m[dev] ||= { id: f.id, version: f.version || '' }
-      map.set(key, m)
-    }
-    const byId = new Map()
-    for (const f of fm1.firmwares) {
-      if (f.byo) continue // "bring your own file" (M-VAVE's): nothing to play without it
-      byId.set(f.id, f)
-      put(repoOfUrl(f.repo), 'fm1', f)
-      put('id:' + f.id, 'fm1', f)
-      if (f.hub) put('id:' + f.hub, 'fm1', f)
-    }
-    for (const f of smk.firmwares) {
-      if (f.byo) continue
-      put(repoOfUrl(f.repo), 'smk37', f)
-      // an SMK-37 port: also under the FM-1 original it was ported from
-      const twin = f.fm1 && byId.get(f.fm1)
-      if (twin) put(repoOfUrl(twin.repo), 'smk37', f)
-    }
-    EMUMAP = map
-  } catch {
-    EMUMAP = new Map()
-  }
-  if (DATA.entries.length) {
-    // the cards already on screen were built before this list arrived: swap their buttons only (a Try, when
-    // the emulator can play it), so the grid doesn't jump back to the top
-    for (const el of document.querySelectorAll('#grid .card[data-id]')) {
-      const e = find(el.dataset.id)
-      const actions = el.querySelector('.actions')
-      if (e && actions) actions.innerHTML = cardButtons(e).join('')
-    }
-    // an open "Try" link or detail sheet that arrived before the emulator's list: show it again, now with Try
-    if (/^#\/(p|try)\//.test(location.hash) || listingPath()) route()
-  }
-}
-
-// what the emulator can play of this listing (null: nothing, or the owner turned it off)
+// what the emulator can play of this listing: { fm1: { pkg, name }, smk37: … } (null: nothing, or the owner turned it off)
 function emuFor(e) {
-  if (!EMUMAP || e.kind !== 'firmware' || e.emulator === false) return null
-  const m = (e.repo && EMUMAP.get(e.repo.toLowerCase())) || EMUMAP.get('id:' + e.id) || {}
+  if (e.kind !== 'firmware' || e.emulator === false) return null
   const out = {}
   for (const d of ['fm1', 'smk37']) {
     if (!e.devices.includes(d)) continue
-    if (m[d]) out[d] = m[d]
-    else if (EMULINK) {
-      // not in its lists: the latest build for that model, through /dl (CORS on, checked like an install)
-      const p = latestPick(e, { model: EMUMODEL[d] })
-      const pkg = p.pkg || p.choices?.[0]
-      if (pkg) out[d] = { pkg: location.origin + pkg.url, name: `${e.name} ${(p.note ? e.prerelease : e.release)?.version || ''}`.trim(), version: '' }
-    }
+    const p = latestPick(e, { model: EMUMODEL[d] })
+    const pkg = p.pkg || p.choices?.[0]
+    if (pkg) out[d] = { pkg: location.origin + pkg.url, name: `${e.name} ${(p.note ? e.prerelease : e.release)?.version || ''}`.trim() }
   }
   return Object.keys(out).length ? out : null
 }
-const EMUMODEL = { fm1: 'FM-1', smk37: 'SMK-37 Pro' }
-const emuUrl = (dev, f, embed) => `${EMU}${dev === 'smk37' ? 'smk37/' : ''}?${f.pkg ? `package=${encodeURIComponent(f.pkg)}&name=${encodeURIComponent(f.name)}` : `fw=${encodeURIComponent(f.id)}`}${embed ? '&embed=1' : ''}`
+const emuUrl = (dev, f, embed) => `${EMU}${dev === 'smk37' ? 'smk37/' : ''}?package=${encodeURIComponent(f.pkg)}&name=${encodeURIComponent(f.name)}${embed ? '&embed=1' : ''}`
 
 // a card's buttons: the maker's website leads when there is one, then how to get it (installer or files),
 // a browser demo, and the source. The same page never gets two buttons.
@@ -879,11 +817,9 @@ function trySheet(e, dev) {
   dev = emu[dev] ? dev : devs[0]
   const f = emu[dev]
   const own = tryIt(e)
-  const latest = String(e.release?.version || '').replace(/^v(?=\d)/, '')
-  const older = f.version && latest && f.version.replace(/^v(?=\d)/, '') !== latest
   open(
     `<h2 id="dlg-title">Try ${esc(e.name)}</h2>
-    <p class="by">The real firmware, running in your browser in the <a href="https://github.com/joakimeriksson/fm1-emu" target="_blank" rel="noopener">FM-1 emulator</a>. Press Start, then play it with your mouse, computer keyboard or a MIDI keyboard.${older ? ` The emulator has version ${esc(f.version)}; the latest is ${esc(e.release.version)}.` : ''}${f.pkg ? ` It isn't in the emulator's own list yet, so it may not run there.` : ''}</p>
+    <p class="by">The real firmware, running in your browser in the <a href="https://github.com/joakimeriksson/fm1-emu" target="_blank" rel="noopener">FM-1 emulator</a>. Press Start, then play it with your mouse, computer keyboard or a MIDI keyboard.</p>
     ${devs.length > 1 ? `<div class="seg emu-devs">${devs.map((d) => `<a class="${d === dev ? 'on' : ''}" href="#/try/${esc(e.id)}/${d}">${esc(DATA.devices[d] || d)}</a>`).join('')}</div>` : ''}
     <div class="emuframe${dev === 'smk37' ? ' smk' : ''}"><iframe src="${esc(emuUrl(dev, f, true))}" title="${esc(e.name)} in the FM-1 emulator" allow="autoplay; midi; fullscreen" loading="eager"></iframe></div>
     <div class="actions">${ext(emuUrl(dev, f, false), 'Open the full emulator ↗', 'btn')}${own ? ext(own.url, `${own.label} (the maker's) ↗`, 'btn') : ''}<a class="btn ghost" href="#/p/${esc(e.id)}">Back to ${esc(e.name)}</a></div>`,
@@ -1354,13 +1290,8 @@ $('#sort').onchange = (ev) => {
 }
 window.addEventListener('hashchange', route)
 
-// the emulator's own lists (2 cross-origin requests) are only needed for a "Try" button, so they load when
-// the page is idle, after the list has painted, never on the first-load critical path
-const idle = (fn) => (window.requestIdleCallback ? requestIdleCallback(fn, { timeout: 3000 }) : setTimeout(fn, 200))
-
 reload()
   .then(route)
-  .then(() => idle(loadEmulator))
   .catch((err) => {
     $('#stats').textContent = 'Could not load the list. ' + err.message
   })
