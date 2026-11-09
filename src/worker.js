@@ -488,7 +488,8 @@ function catalog(all, synced) {
         size: a.size,
         sha256: a.sha256,
         // the flash chip it knows, as The Firmware Hub says it: new, old (the first FM-1s only) or any (it doesn't check)
-        chip: ['new', 'old', 'any'].includes(a.chip) ? a.chip : undefined,
+        // (a listing's tested chip, set by hand, wins over the package's)
+        chip: (deviceOf(a.product) === 'fm1' && e.chip) || (['new', 'old', 'any'].includes(a.chip) ? a.chip : undefined),
         beta: !!(e.beta || rel.prerelease),
         stock: e.stock || undefined,
         hid: e.hid || { keyboard: false, mouse: false },

@@ -195,6 +195,8 @@ export function cleanInput(body, { partial = false } = {}) {
   // false: no "Try" in the web emulator (the maker would rather send people to their own page or demo)
   if (has('emulator')) data.emulator = body.emulator !== false
   if (has('base')) data.base = BASES.includes(body.base) ? body.base : null
+  // the flash chip as tested on a device, when reading the packages can't tell (or there are none): wins over them
+  if (has('chip')) data.chip = ['new', 'old'].includes(body.chip) ? body.chip : null
 
   if (has('devices') || !partial) {
     data.devices = uniq((Array.isArray(body.devices) ? body.devices : []).filter((d) => DEVICES[d]))
@@ -298,7 +300,7 @@ export function effective(row) {
   return order(e)
 }
 
-const ORDER = ['id', 'kind', 'name', 'author', 'authorUrl', 'github', 'repo', 'description', 'devices', 'tags', 'primaryTag', 'base', 'license', 'homepage', 'cover', 'coverIsScreen', 'image', 'screen', 'card', 'links', 'rfm1', 'release', 'prerelease', 'versions', 'beta', 'emulator', 'stock', 'hid', 'archived', 'added', 'updated', 'managers', 'listedBy', 'sources', 'edited', 'hidden', 'locked']
+const ORDER = ['id', 'kind', 'name', 'author', 'authorUrl', 'github', 'repo', 'description', 'devices', 'tags', 'primaryTag', 'base', 'license', 'homepage', 'cover', 'coverIsScreen', 'image', 'screen', 'card', 'links', 'rfm1', 'release', 'prerelease', 'versions', 'beta', 'chip', 'emulator', 'stock', 'hid', 'archived', 'added', 'updated', 'managers', 'listedBy', 'sources', 'edited', 'hidden', 'locked']
 
 function order(e) {
   const out = {}

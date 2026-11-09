@@ -94,12 +94,14 @@ const reportUrl = (e) => `${ISSUES}?template=listing.yml&title=${encodeURICompon
 // the flash chip a listing's FM-1 packages know (read from each package): newer FM-1s carry a UC25HQ80 (0xB36014).
 // 'new' if one of them knows it, 'any' if one doesn't check, 'old' if they know only the first FM-1s' chip
 function chipOf(e) {
+  if (e.chip) return e.chip // tested on a device, set by hand
   const r = packages(e.release).length ? e.release : e.prerelease
   const seen = packages(r).map((a) => a.chip)
   return ['new', 'any', 'old'].find((c) => seen.includes(c)) || null
 }
 const savesOnNew = (e) => ['new', 'any'].includes(chipOf(e))
 const CHIP_NOTE = { new: 'saves on every FM-1', any: "doesn't check the flash chip", old: 'first FM-1s only: no saves on newer ones' }
+const TESTED_NOTE = { new: 'tested on newer FM-1s', old: 'tested: first FM-1s only' }
 
 const deviceIds = (e) => [...new Set([...(e.release?.assets || []), ...(e.prerelease?.assets || [])].map((a) => a.product).filter(Boolean))]
 // other listings whose current files report the same device ID
@@ -619,7 +621,9 @@ function detail(e) {
 }
 
 // a version's files; a package for a known device gets an Install button (#/install/<id>/<file>)
-const fileList = (f, e) => `<ul class="files">${f.map((a) => `<li><a href="${safe(a.url)}">${esc(a.name)}</a><span class="fmeta"><span class="mono">${a.product ? `${esc(a.product)} · ` : ''}${fmtSize(a.size)}</span>${CHIP_NOTE[a.chip] ? `<span class="chipnote${a.chip === 'old' ? ' old' : ''}" title="Its flash chip support, read from the package">${CHIP_NOTE[a.chip]}</span>` : ''}${e && isPackage(a) && !a.missing && !a.invalid ? `<a class="btn small" href="#/install/${esc(e.id)}/${esc(encodeURIComponent(a.name))}" title="Write it to your ${esc(deviceName(a.product))} over USB, from this page">Install</a>` : ''}</span></li>`).join('')}</ul>`
+// a listing's tested chip goes on the FM-1 packages of what it shows now (not older versions: those weren't tested)
+const tested = (e, a) => !!e?.chip && /^FM-1_/.test(a.product || '') && [...(e.release?.assets || []), ...(e.prerelease?.assets || [])].includes(a)
+const fileList = (f, e) => `<ul class="files">${f.map((a) => `<li><a href="${safe(a.url)}">${esc(a.name)}</a><span class="fmeta"><span class="mono">${a.product ? `${esc(a.product)} · ` : ''}${fmtSize(a.size)}</span>${tested(e, a) ? `<span class="chipnote${e.chip === 'old' ? ' old' : ''}" title="Tried on an FM-1 with the newer flash chip (0xB36014)">${TESTED_NOTE[e.chip]}</span>` : CHIP_NOTE[a.chip] ? `<span class="chipnote${a.chip === 'old' ? ' old' : ''}" title="Its flash chip support, read from the package">${CHIP_NOTE[a.chip]}</span>` : ''}${e && isPackage(a) && !a.missing && !a.invalid ? `<a class="btn small" href="#/install/${esc(e.id)}/${esc(encodeURIComponent(a.name))}" title="Write it to your ${esc(deviceName(a.product))} over USB, from this page">Install</a>` : ''}</span></li>`).join('')}</ul>`
 
 // installing the latest from the card: the device is asked what it is, and that model's file is picked from the
 // latest release (its prerelease when only that has one). Several (old and new builds side by side: the one named
@@ -1007,7 +1011,7 @@ async function activitySheet() {
 
 // --- edit form ------------------------------------------------------------
 
-const FIELDS = ['kind', 'name', 'author', 'authorUrl', 'repo', 'homepage', 'description', 'devices', 'tags', 'primaryTag', 'base', 'license', 'image', 'links', 'managers', 'beta', 'emulator']
+const FIELDS = ['kind', 'name', 'author', 'authorUrl', 'repo', 'homepage', 'description', 'devices', 'tags', 'primaryTag', 'base', 'chip', 'license', 'image', 'links', 'managers', 'beta', 'emulator']
 
 function form(e) {
   if (!ME.user) return signInSheet(e ? 'Sign in to edit this listing.' : 'Sign in to add a project.')
@@ -1056,6 +1060,12 @@ function form(e) {
           .map((b) => `<option value="${esc(b)}" ${v.base === b ? 'selected' : ''}>${esc(baseName(b))}</option>`)
           .join('')}</select></label>
       </div>
+      <label class="field"><span>Newer FM-1s (flash chip 0xB36014)</span><select name="chip">
+          <option value="">Read from the package</option>
+          <option value="new" ${v.chip === 'new' ? 'selected' : ''}>Tested: saves on newer FM-1s</option>
+          <option value="old" ${v.chip === 'old' ? 'selected' : ''}>Tested: first FM-1s only</option>
+        </select>
+        <small>Usually read from the firmware itself. Set it only if it was tried on a newer FM-1 and the check gets it wrong (or can't tell).</small></label>
       <div class="row2">
         <label class="field"><span>License</span><input name="license" maxlength="40" placeholder="GPL-3.0, MIT, closed…" value="${esc(v.license || '')}" /></label>
         <label class="field"><span>Picture URL</span><input name="image" placeholder="https://…png" value="${esc(ownPic(v))}" />
@@ -1158,6 +1168,7 @@ function form(e) {
     primaryTag: f.primaryTag.value || null,
     homepage: f.homepage.value.trim() || null,
     base: f.base.value || null,
+    chip: f.chip.value || null,
     license: f.license.value.trim() || null,
     image: f.image.value.trim() || null,
     links: [...f.querySelectorAll('.lrow')].map((r) => ({ label: $('[data-l=label]', r).value.trim(), url: $('[data-l=url]', r).value.trim() })).filter((l) => l.label || l.url),
