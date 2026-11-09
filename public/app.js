@@ -553,7 +553,9 @@ dlg.addEventListener('cancel', (ev) => {
 function detail(e) {
   if (!e) return open('<h2 id="dlg-title">Not found</h2><p>That entry is gone or hidden.</p>')
   const f = files(e)
-  const links = [...(e.homepage ? [{ label: 'Website', url: e.homepage }] : []), ...e.links, ...(e.repo ? [{ label: 'GitHub', url: ghUrl(e) }] : [])]
+  // (a RemoteFM1 build: the .rfm1 file, unless the listing links one itself)
+  const rfm1 = e.rfm1 && !e.links.some((l) => /\.rfm1|remotefm1fw/i.test(l.url)) ? [{ label: 'RemoteFM1 (.rfm1)', url: e.rfm1.url }] : []
+  const links = [...(e.homepage ? [{ label: 'Website', url: e.homepage }] : []), ...e.links, ...rfm1, ...(e.repo ? [{ label: 'GitHub', url: ghUrl(e) }] : [])]
   const sources = {
     firmwarehub: ['The Firmware Hub', 'https://thefirmwarehub.com/'],
     fmdb: ['FMDB', 'https://stanleygurvich.github.io/FMDB_FM1_FirmwareDatabase/'],

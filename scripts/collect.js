@@ -401,6 +401,29 @@ async function fromReddit() {
   return Object.values(leads).map((l) => ({ src: 'reddit', repo: l.repo, name: l.repo.split('/')[1], kind: 'firmware', links: [], found: { reddit: l.post } }))
 }
 
+// --- RemoteFM1 builds ------------------------------------------------------
+// Quixotic7/RemoteFM1FW publishes firmwares built as .rfm1 files for RemoteFM1's players (the web player, the iOS and
+// Android apps), with a table of each one's source repo. A listing with that repo gets the file (auto.rfm1), and the
+// site shows it with the remotefm1 tag. (‡ marks a "fantasy" firmware that only runs there, † one hosted only there.)
+
+const RFM1_REPO = 'Quixotic7/RemoteFM1FW'
+
+async function fromRfm1() {
+  const md = await get(`https://raw.githubusercontent.com/${RFM1_REPO}/HEAD/README.md`, 'text')
+  const table = md?.split('rfm1-table:start')[1]?.split('rfm1-table:end')[0]
+  if (!table) return null
+  const out = new Map()
+  for (const line of table.split('\n')) {
+    const c = line.split('|').map((s) => s.trim())
+    const file = c[1]?.match(/^`([^`]+\.rfm1)`$/)?.[1]
+    const repo = c[5]?.match(/github\.com\/([^/]+\/[^/)]+)\/tree\//)?.[1]
+    if (!file || !repo) continue
+    out.set(repoKey(repo), { file, url: `https://github.com/${RFM1_REPO}/releases/download/current/${encodeURIComponent(file)}`, only: /‡/.test(c[2]) || undefined })
+  }
+  log(`  remotefm1: ${out.size} .rfm1 builds`)
+  return out.size ? out : null
+}
+
 // --- GitHub ---------------------------------------------------------------
 
 async function github(repos) {
@@ -1101,6 +1124,12 @@ async function main() {
     }
   }
   log(`  ${nv} versions`)
+  // RemoteFM1 builds last (after a --full refresh rewrote auto): cleared, then set for each repo in the table
+  const rfm1 = await fromRfm1()
+  if (rfm1) {
+    sql.push(`UPDATE entries SET auto = json_remove(auto, '$.rfm1') WHERE json_extract(auto, '$.rfm1') IS NOT NULL;`)
+    for (const [repo, r] of rfm1) sql.push(`UPDATE entries SET auto = json_set(auto, '$.rfm1', json(${q(JSON.stringify(r))})) WHERE repo = ${q(repo)};`)
+  }
   await writeFile(new URL('auto.sql', OUT), sql.join('\n') + '\n')
   const by = (k) => entries.filter(k).length
   if (!FULL) log(entries.length ? `${entries.length} new: ${entries.map((e) => e.name).join(', ')}` : 'nothing new to add')

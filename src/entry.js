@@ -278,6 +278,11 @@ export function effective(row) {
     if (newest && e.release && newest.version !== e.release.version && (newest.date || '') > (e.release.date || '') && !installable(newest) && (newest.assets || []).some((a) => /\.fwsc$/i.test(a.name))) e.newerUnchecked = newest
   }
   if (e.release && e.release.date > (e.updated || '')) e.updated = e.release.date
+  // a build for RemoteFM1's players (Quixotic7/RemoteFM1FW, read by the sync): the remotefm1 tag, and its file
+  if (auto.rfm1?.url) {
+    e.rfm1 = auto.rfm1
+    if (!e.tags.includes('remotefm1')) e.tags = [...e.tags, 'remotefm1']
+  }
   // collected entries only get dates their sources gave; the row's own date is "added" only for entries made here
   const madeHere = !(auto.sources || []).some((x) => x !== 'user' && x !== 'action')
   if (!e.added && madeHere) e.added = row.created?.slice(0, 10)
@@ -289,7 +294,7 @@ export function effective(row) {
   return order(e)
 }
 
-const ORDER = ['id', 'kind', 'name', 'author', 'authorUrl', 'github', 'repo', 'description', 'devices', 'tags', 'primaryTag', 'base', 'license', 'homepage', 'cover', 'coverIsScreen', 'image', 'screen', 'card', 'links', 'release', 'prerelease', 'versions', 'beta', 'emulator', 'stock', 'hid', 'archived', 'added', 'updated', 'managers', 'listedBy', 'sources', 'edited', 'hidden', 'locked']
+const ORDER = ['id', 'kind', 'name', 'author', 'authorUrl', 'github', 'repo', 'description', 'devices', 'tags', 'primaryTag', 'base', 'license', 'homepage', 'cover', 'coverIsScreen', 'image', 'screen', 'card', 'links', 'rfm1', 'release', 'prerelease', 'versions', 'beta', 'emulator', 'stock', 'hid', 'archived', 'added', 'updated', 'managers', 'listedBy', 'sources', 'edited', 'hidden', 'locked']
 
 function order(e) {
   const out = {}
