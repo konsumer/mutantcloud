@@ -1012,6 +1012,8 @@ const FIELDS = ['kind', 'name', 'author', 'authorUrl', 'repo', 'homepage', 'desc
 function form(e) {
   if (!ME.user) return signInSheet(e ? 'Sign in to edit this listing.' : 'Sign in to add a project.')
   if (e && !canEdit(e)) return detail(e)
+  // tags the site adds by itself (a RemoteFM1 build) aren't the listing's own: not shown here, so never saved
+  if (e?.autoTags?.length) e = { ...e, tags: e.tags.filter((t) => !e.autoTags.includes(t)) }
   // a new listing starts as the signed-in maker's own: their GitHub name and profile as the author
   const v = e || { kind: 'firmware', devices: ['fm1'], tags: [], links: [], managers: [], author: ME.user.login, authorUrl: `https://github.com/${ME.user.login}` }
   const checks = (name, opts, sel) => `<div class="checks">${opts.map(([val, label]) => `<label><input type="checkbox" name="${name}" value="${esc(val)}" ${sel.includes(val) ? 'checked' : ''} />${esc(label)}</label>`).join('')}</div>`

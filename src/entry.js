@@ -281,7 +281,11 @@ export function effective(row) {
   // a build for RemoteFM1's players (Quixotic7/RemoteFM1FW, read by the sync): the remotefm1 tag, and its file
   if (auto.rfm1?.url) {
     e.rfm1 = auto.rfm1
-    if (!e.tags.includes('remotefm1')) e.tags = [...e.tags, 'remotefm1']
+    // (autoTags: added here, not chosen by anyone, so the edit form leaves them out and never saves them)
+    if (!e.tags.includes('remotefm1')) {
+      e.tags = [...e.tags, 'remotefm1']
+      e.autoTags = ['remotefm1']
+    }
   }
   // collected entries only get dates their sources gave; the row's own date is "added" only for entries made here
   const madeHere = !(auto.sources || []).some((x) => x !== 'user' && x !== 'action')
