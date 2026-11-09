@@ -18,9 +18,9 @@ const baseEntry = (b) => {
 let ME = { user: null, manages: [] }
 
 // the list's filters live in the URL, so any combination is a link:
-//   ?author=konsumer&device=fm1   ?device=smk37   ?base=felucca&tag=drums   ?kind=tool
+//   ?author=konsumer&device=fm1   ?device=smk37   ?base=felucca&tag=drums   ?kind=tool   ?chip=new (saves on newer FM-1s)
 // the site opens on FM1 firmware; ?device=all shows every device
-const DEFAULTS = { q: '', kind: 'firmware', device: 'fm1', tag: '', author: '', base: '', deviceId: '', sort: 'updated' }
+const DEFAULTS = { q: '', kind: 'firmware', device: 'fm1', tag: '', author: '', base: '', deviceId: '', chip: '', sort: 'updated' }
 const state = { ...DEFAULTS }
 function readUrl() {
   const p = new URLSearchParams(location.search)
@@ -91,6 +91,16 @@ const ISSUES = 'https://github.com/konsumer/mutantcloud/issues/new'
 const reportUrl = (e) => `${ISSUES}?template=listing.yml&title=${encodeURIComponent(`Listing: ${e.name}`)}&listing=${encodeURIComponent(`https://mutant.cloud/${e.id}`)}`
 
 // device IDs ("FM-1_745"): what a listing's current files report (same as src/entry.js deviceIds)
+// the flash chip a listing's FM-1 packages know (read from each package): newer FM-1s carry a UC25HQ80 (0xB36014).
+// 'new' if one of them knows it, 'any' if one doesn't check, 'old' if they know only the first FM-1s' chip
+function chipOf(e) {
+  const r = packages(e.release).length ? e.release : e.prerelease
+  const seen = packages(r).map((a) => a.chip)
+  return ['new', 'any', 'old'].find((c) => seen.includes(c)) || null
+}
+const savesOnNew = (e) => ['new', 'any'].includes(chipOf(e))
+const CHIP_NOTE = { new: 'saves on every FM-1', any: "doesn't check the flash chip", old: 'first FM-1s only: no saves on newer ones' }
+
 const deviceIds = (e) => [...new Set([...(e.release?.assets || []), ...(e.prerelease?.assets || [])].map((a) => a.product).filter(Boolean))]
 // other listings whose current files report the same device ID
 // (built once per load of the list: device ID -> the listings that report it)
@@ -122,6 +132,7 @@ function notes(e) {
     else if (a.invalid) out.push({ warn: true, text: `${a.name} isn't a valid FM-1 package any more (since ${fmtDate(a.invalid)}), so it isn't offered here or to installers.` })
     else if (a.replaced && daysAgo(a.replaced) <= 60) out.push({ text: `${a.name} was replaced on ${fmtDate(a.replaced)} without a new version number. It's been re-checked, so installers work; if you installed it before then, you have the older build.` })
   }
+  if (chipOf(e) === 'old') out.push({ text: "Knows only the first FM-1s' flash chip. On a newer FM-1 (flash ID 0xB36014) it keeps your saves in memory only, so they're gone when you switch it off, and updating from it may fail." })
   const n = e.newerUnchecked
   if (n) {
     const why = (n.assets || []).some((a) => a.invalid) ? "its file isn't a valid FM-1 package" : (n.assets || []).some((a) => a.unchecked) ? "its file couldn't be downloaded to check it (it's retried automatically)" : 'its file is waiting to be checked'
@@ -243,6 +254,7 @@ function filtered() {
     if (state.author && authorKey(e) !== state.author) return false
     if (state.base && e.base !== state.base) return false
     if (state.deviceId && !deviceIds(e).includes(state.deviceId)) return false
+    if (state.chip && !savesOnNew(e)) return false
     if (!words.length) return true
     const hay = [e.name, e.author, e.description, e.repo, e.base, e.base && baseName(e.base), ...e.tags, ...deviceIds(e)].join(' ').toLowerCase()
     return words.every((w) => hay.includes(w))
@@ -417,8 +429,8 @@ function summary(list) {
   const kind = { firmware: n === 1 ? 'firmware' : 'firmwares', tool: n === 1 ? 'tool' : 'tools', all: 'firmwares & tools' }[state.kind]
   const authorName = state.author ? DATA.entries.find((e) => authorKey(e) === state.author)?.author || state.author : ''
   const x = (patch, label) => `<a class="chip on" data-f href="${esc(filterUrl(patch))}" title="Remove">${label} <span aria-hidden="true">×</span></a>`
-  const parts = [`<b>${n}</b>`, state.tag ? x({ tag: '' }, esc(state.tag)) : '', state.device !== 'all' ? x({ device: 'all' }, esc(DATA.devices[state.device] || state.device)) : '', esc(kind), state.author ? `by ${x({ author: '' }, esc(authorName))}` : '', state.base ? `built on ${x({ base: '' }, esc(baseName(state.base)))}` : '', state.deviceId ? `with device ID ${x({ deviceId: '' }, esc(state.deviceId))}` : '', state.q ? `matching ${x({ q: '' }, `“${esc(state.q)}”`)}` : ''].filter(Boolean)
-  const filteredView = ['tag', 'device', 'author', 'base', 'deviceId', 'q', 'kind'].some((k) => state[k] !== DEFAULTS[k])
+  const parts = [`<b>${n}</b>`, state.tag ? x({ tag: '' }, esc(state.tag)) : '', state.device !== 'all' ? x({ device: 'all' }, esc(DATA.devices[state.device] || state.device)) : '', esc(kind), state.author ? `by ${x({ author: '' }, esc(authorName))}` : '', state.base ? `built on ${x({ base: '' }, esc(baseName(state.base)))}` : '', state.deviceId ? `with device ID ${x({ deviceId: '' }, esc(state.deviceId))}` : '', state.chip ? `that ${x({ chip: '' }, 'save on newer FM-1s')}` : '', state.q ? `matching ${x({ q: '' }, `“${esc(state.q)}”`)}` : ''].filter(Boolean)
+  const filteredView = ['tag', 'device', 'author', 'base', 'deviceId', 'chip', 'q', 'kind'].some((k) => state[k] !== DEFAULTS[k])
   $('#count').innerHTML = parts.join(' ') + (filteredView ? ` <span class="filter-actions"><button type="button" class="btn small" id="copylink">Copy link</button><a class="btn small ghost" data-f href="${esc(query({ ...DEFAULTS, sort: state.sort }))}">Clear</a></span>` : '')
   const title = $('#count')
     .textContent.replace(/\s*×\s*/g, ' ')
@@ -483,13 +495,18 @@ function controls() {
     'kind'
   )
   seg($('#device'), [['all', 'Any device'], ...Object.entries(DATA.devices)], 'device')
-  $('#tags').innerHTML = barTags()
-    .map((t) => `<button type="button" class="chip" data-t="${esc(t)}" style="--h:${hue(t)}" aria-pressed="${state.tag === t}">${esc(t)}</button>`)
-    .join('')
+  // (firmware for the FM-1: the newer flash chip filter comes first)
+  const chipBox = state.kind !== 'tool' && ['fm1', 'all'].includes(state.device) ? `<button type="button" class="chip flash" data-c aria-pressed="${!!state.chip}" title="Firmware that keeps its saves on FM-1s with the newer flash chip (0xB36014), read from each package">Saves on newer FM-1s</button>` : ''
+  $('#tags').innerHTML =
+    chipBox +
+    barTags()
+      .map((t) => `<button type="button" class="chip" data-t="${esc(t)}" style="--h:${hue(t)}" aria-pressed="${state.tag === t}">${esc(t)}</button>`)
+      .join('')
   $('#tags').onclick = (ev) => {
     const b = ev.target.closest('button')
     if (!b) return
-    state.tag = state.tag === b.dataset.t ? '' : b.dataset.t
+    if (b.dataset.c !== undefined) state.chip = state.chip ? '' : 'new'
+    else state.tag = state.tag === b.dataset.t ? '' : b.dataset.t
     controls()
     render()
   }
@@ -600,7 +617,7 @@ function detail(e) {
 }
 
 // a version's files; a package for a known device gets an Install button (#/install/<id>/<file>)
-const fileList = (f, e) => `<ul class="files">${f.map((a) => `<li><a href="${safe(a.url)}">${esc(a.name)}</a><span class="fmeta"><span class="mono">${a.product ? `${esc(a.product)} · ` : ''}${fmtSize(a.size)}</span>${e && isPackage(a) && !a.missing && !a.invalid ? `<a class="btn small" href="#/install/${esc(e.id)}/${esc(encodeURIComponent(a.name))}" title="Write it to your ${esc(deviceName(a.product))} over USB, from this page">Install</a>` : ''}</span></li>`).join('')}</ul>`
+const fileList = (f, e) => `<ul class="files">${f.map((a) => `<li><a href="${safe(a.url)}">${esc(a.name)}</a><span class="fmeta"><span class="mono">${a.product ? `${esc(a.product)} · ` : ''}${fmtSize(a.size)}</span>${CHIP_NOTE[a.chip] ? `<span class="chipnote${a.chip === 'old' ? ' old' : ''}" title="Its flash chip support, read from the package">${CHIP_NOTE[a.chip]}</span>` : ''}${e && isPackage(a) && !a.missing && !a.invalid ? `<a class="btn small" href="#/install/${esc(e.id)}/${esc(encodeURIComponent(a.name))}" title="Write it to your ${esc(deviceName(a.product))} over USB, from this page">Install</a>` : ''}</span></li>`).join('')}</ul>`
 
 // installing the latest from the card: the device is asked what it is, and that model's file is picked from the
 // latest release (its prerelease when only that has one). Several (old and new builds side by side: the one named

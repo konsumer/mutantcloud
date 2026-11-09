@@ -11,7 +11,7 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises'
 import { spawnSync } from 'node:child_process'
 import { slugify, parseRepo, repoKey, cleanUrl, baseOfRepo, BASE_INFO, RESERVED } from '../src/entry.js'
-import { inspect, deviceOf } from '../src/pkg.js'
+import { inspect, deviceOf, needsChip } from '../src/pkg.js'
 import { ghToken, wrangler, parseJson, DB_NAME } from './wrangler.js'
 
 // --full: re-read everything (every repo on GitHub, every listing). Default: only listings that aren't in the
@@ -85,7 +85,7 @@ const addProduct = (repo, product) => {
 // (FMDB's own "identity" is not the product id, so the product always comes from the file.)
 const KNOWN_SHA = new Map()
 const seedPkg = (url, c) => {
-  if (url && c?.sha256 && c?.product && c?.size && !PKG.has(url)) PKG.set(url, { sha256: c.sha256, size: c.size, product: c.product })
+  if (url && c?.sha256 && c?.product && c?.size && !PKG.has(url)) PKG.set(url, { sha256: c.sha256, size: c.size, product: c.product, ...(c.chip ? { chip: c.chip } : {}) })
 }
 
 // --- thefirmwarehub.com ---------------------------------------------------
@@ -775,7 +775,7 @@ async function findHostedPackages(entries, gh) {
     for (const f of files) {
       if (!PKG.has(f.url)) {
         const k = KNOWN_SHA.get(f.url)
-        const c = await inspect(f.url, { digest: k?.digest, size: k?.size, headers: UA }).catch(() => undefined)
+        const c = await inspect(f.url, { digest: k?.digest, headers: UA }).catch(() => undefined)
         if (c !== undefined) PKG.set(f.url, c || false)
       }
     }
@@ -836,7 +836,8 @@ async function checkPackages(entries) {
   const todo = new Map()
   for (const e of entries) {
     for (const a of [...(e.release?.assets || []), ...(e.prerelease?.assets || [])]) {
-      if (/\.fwsc$/i.test(a.name) && !PKG.has(a.url)) todo.set(a.url, a)
+      // (and FM-1 packages checked before the flash chip check)
+      if (/\.fwsc$/i.test(a.name) && (!PKG.has(a.url) || needsChip(PKG.get(a.url)))) todo.set(a.url, a)
     }
   }
   log(`checking ${todo.size} packages (${PKG.size} known)…`)
@@ -848,7 +849,7 @@ async function checkPackages(entries) {
         const a = list.shift()
         const k = KNOWN_SHA.get(a.url)
         // (a download that failed isn't remembered, so the next run tries again)
-        const c = await inspect(a.url, { digest: a._digest || k?.digest, size: a.size || k?.size, headers: UA }).catch(() => undefined)
+        const c = await inspect(a.url, { digest: a._digest || k?.digest, headers: UA }).catch(() => undefined)
         if (c !== undefined) PKG.set(a.url, c || false)
         if (++done % 50 === 0) log(`  ${done}/${todo.size}`)
       }

@@ -358,6 +358,16 @@ select {
   color: #fff;
 }
 
+/* the newer-flash-chip filter: a box of its own, before the tags */
+.chip.flash {
+  border-style: dashed;
+}
+
+.chip.flash[aria-pressed='true'] {
+  --h: 200;
+  border-style: solid;
+}
+
 /* filter links sit above the card's own link */
 .card .flink {
   position: relative;
@@ -1294,6 +1304,18 @@ form.edit {
 
 .dim {
   color: var(--muted);
+}
+
+.files .chipnote {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.files .chipnote.old {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--c2) 25%, transparent);
+  padding: 0 6px;
+  border-radius: 4px;
 }
 
 .files .fmeta {

@@ -1,5 +1,5 @@
 import { authorKey, DEVICES, KINDS, TAGS, BASES, BASE_INFO, baseOfRepo, isAdmin, FILTERS, matches, RESERVED, parseDeviceId, slugify, repoKey, repoOwner, cleanInput, cleanUrl, effective, canManage } from './entry.js'
-import { inspect, deviceOf, product, HEAD_BYTES } from './pkg.js'
+import { inspect, check, needsChip, deviceOf } from './pkg.js'
 
 const SESSION_COOKIE = 'mc_session'
 const STATE_COOKIE = 'mc_oauth'
@@ -487,6 +487,8 @@ function catalog(all, synced) {
         product: a.product,
         size: a.size,
         sha256: a.sha256,
+        // the flash chip it knows, as The Firmware Hub says it: new, old (the first FM-1s only) or any (it doesn't check)
+        chip: ['new', 'old', 'any'].includes(a.chip) ? a.chip : undefined,
         beta: !!(e.beta || rel.prerelease),
         stock: e.stock || undefined,
         hid: e.hid || { keyboard: false, mouse: false },
@@ -728,7 +730,7 @@ async function checkAssets(rels, also = []) {
   await Promise.all(
     todo.map(async (a) => {
       try {
-        const c = await inspect(a.url, { digest: a._digest, size: a.size, headers: { 'user-agent': 'mutant.cloud' } })
+        const c = await inspect(a.url, { digest: a._digest, headers: { 'user-agent': 'mutant.cloud' } })
         found.set(a.url, c ? { ...c, checked: today } : { invalid: today, checked: today })
       } catch {
         found.set(a.url, { unchecked: today })
@@ -1272,7 +1274,8 @@ const hexOf = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padSta
 // re-check one listed file (mutates it); returns 'same', 'updated' (worth saving) or 'error' (try again later)
 async function checkFile(a) {
   const today = new Date().toISOString().slice(0, 10)
-  const headers = { ...WATCH_UA, ...(a.etag ? { 'if-none-match': a.etag } : a.lastModified ? { 'if-modified-since': a.lastModified } : {}) }
+  // (asked plainly while its flash chip is unknown: "not modified" wouldn't tell it)
+  const headers = { ...WATCH_UA, ...(needsChip(a) ? {} : a.etag ? { 'if-none-match': a.etag } : a.lastModified ? { 'if-modified-since': a.lastModified } : {}) }
   let r
   try {
     r = await fetch(a.url, { headers, redirect: 'follow' })
@@ -1292,18 +1295,27 @@ async function checkFile(a) {
   delete a.missing
   const sha = hexOf(await crypto.subtle.digest('SHA-256', buf))
   if (sha !== a.sha256) {
-    const p = product(new Uint8Array(buf, 0, Math.min(buf.byteLength, HEAD_BYTES)))
-    if (!p) {
+    const c = await check(buf, sha)
+    if (!c) {
       if (!a.invalid) a.invalid = today
     } else {
       // replaced in place: list what's there now, so installers that verify it work again
-      Object.assign(a, { sha256: sha, size: buf.byteLength, product: p, replaced: today })
+      Object.assign(a, c, { replaced: today })
       delete a.invalid
     }
     result = 'updated'
-  } else if (a.invalid) {
-    delete a.invalid
-    result = 'updated'
+  } else {
+    if (a.invalid) {
+      delete a.invalid
+      result = 'updated'
+    }
+    if (needsChip(a)) {
+      const c = await check(buf, sha)
+      if (c?.chip) {
+        a.chip = c.chip
+        result = 'updated'
+      }
+    }
   }
   const etag = r.headers.get('etag') || undefined
   const lastModified = r.headers.get('last-modified') || undefined
@@ -1331,7 +1343,7 @@ async function checkGithubFile(a) {
   }
   const store = (r.headers.get('location') || '').split('?')[0]
   if (!store) return 'error'
-  if (store === a.store && !a.missing) return 'same'
+  if (store === a.store && !a.missing && !needsChip(a)) return 'same'
   let c
   try {
     c = await inspect(a.url, { headers: WATCH_UA })
@@ -1346,12 +1358,27 @@ async function checkGithubFile(a) {
     return 'updated'
   }
   delete a.invalid
+  if (c.chip) a.chip = c.chip
   if (c.sha256 !== a.sha256) {
     Object.assign(a, c)
     // (on the first look there's no earlier copy to compare, but a different sha256 still means it changed)
     a.replaced = today
     if (!was) console.log('first check found a changed file:', a.url)
   }
+  return 'updated'
+}
+
+// a file that can't change, checked before the flash chip check: just that (once)
+async function addChip(a) {
+  let c
+  try {
+    c = await inspect(a.url, { headers: WATCH_UA })
+  } catch {
+    return 'error'
+  }
+  // (a different file under the same address: not this one's chip, and it can't change, so it's left as it was)
+  if (!c?.chip || c.sha256 !== a.sha256) return 'same'
+  a.chip = c.chip
   return 'updated'
 }
 
@@ -1387,7 +1414,7 @@ async function verifyFiles(env) {
       let dirty = false
       for (const a of assets) {
         if (!a.url || !/\.fwsc$/i.test(a.name)) continue
-        const how = !a.sha256 ? retryFile : githubRelease(a.url) ? checkGithubFile : pinnedFile(a.url) ? null : checkFile
+        const how = !a.sha256 ? retryFile : githubRelease(a.url) ? checkGithubFile : pinnedFile(a.url) ? (needsChip(a) ? addChip : null) : checkFile
         if (!how) continue
         if (budget < 2) {
           finished = false
