@@ -13,7 +13,8 @@
     "shots": "node scripts/shots.js",
     "collect": "node scripts/collect.js",
     "fmt": "npx -y prettier -w src scripts public migrations README.md action.yml wrangler.jsonc package.json",
-    "og": "node scripts/og.js"
+    "og": "node scripts/og.js",
+    "chips": "node scripts/chips.js"
   },
   "devDependencies": {
     "wrangler": "^4.156.0"
