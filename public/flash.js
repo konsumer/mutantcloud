@@ -24,6 +24,10 @@ const TEXT = {
   reboot: 'Restarting',
   done: 'Done: it runs the new firmware.',
   stopped: 'It stopped. Replug the USB cable and press Install again: the device stays in update mode until an install finishes.',
+  // (the first step stopped: the running firmware read the package and turned it down, before update mode)
+  refused: "It didn't start: the firmware on the device read the package and stopped, before anything was written. It still runs what it had. Switch it off and on, then try again.",
+  // (M-VAVE's stock firmware won't install the version it already runs)
+  same: "It's already running this firmware, and it won't install the same version over itself. Nothing was written. To put it on again, install another firmware first, then this one.",
   denied: 'MIDI (SysEx) was not allowed. Allow MIDI for this site (the icon in the address bar) and try again.',
   nomidi: 'This browser cannot talk to the device. Use Chrome or Edge on a computer.',
   notfound: 'No device found.',
@@ -189,18 +193,24 @@ export function mountFlasher(el, { pick, verb = 'Install', intro = '' }) {
     lock(true)
     bar.hidden = false
     bar.value = 0
+    // what was plugged in, the package's identity, and whether the update loader was reached: to tell why it stopped
+    let dev = null
+    let want = ''
+    let staged = false
     try {
       say(pkg.raw ? 'Checking the file…' : 'Downloading…')
       const { raw, product } = await load(pkg)
       // the device again, now: it may have been swapped or unplugged since the check
-      const dev = await detect(log)
+      dev = await detect(log)
       if (!dev) throw Object.assign(new Error(''), { code: 'notfound' })
+      want = product
       const bad = checkFor(dev, product)
       if (bad) throw new Error(bad.replace(/<[^>]+>/g, ''))
       const up = new HubUpdater(await midi(), log)
       const image = logicalImage(raw)
       const total = 74 + Math.ceil(image.length / 512)
       const step = (k, a) => {
+        if (k === 'loader') staged = true
         log(`${k} ${a ?? ''}`)
         if (TEXT[k]) say(esc(TEXT[k]))
         if (k === 'verify') bar.value = (100 * a) / total
@@ -228,7 +238,9 @@ export function mountFlasher(el, { pick, verb = 'Install', intro = '' }) {
       bar.value = 100
       say(now ? `<b>Done.</b> It runs <span class="mono">${esc(now)}</span> now.` : "<b>Written.</b> Switch it off and on if it doesn't restart by itself.", 'ok')
     } catch (e) {
-      say(`${esc(TEXT[e.code] || '')}${TEXT[e.code] ? esc(e.detail || '') : esc(e.message)}${e.code === 'notfound' ? TIPS : ''}${['stopped', 'lost', 'noloader'].includes(e.code) ? ' Or finish it from the <a href="/rescue">rescue page</a>.' : ''}`, 'bad')
+      // stopped before update mode: turned down by the running firmware (or it already runs this very package)
+      if (e.code === 'stopped' && dev && !dev.ota && !staged) e.code = dev.text === want ? 'same' : 'refused'
+      say(`${esc(TEXT[e.code] || '')}${TEXT[e.code] ? esc(e.detail || '') : esc(e.message)}${e.code === 'notfound' ? TIPS : ''}${['stopped', 'lost', 'noloader', 'refused'].includes(e.code) ? ' Or finish it from the <a href="/rescue">rescue page</a>.' : ''}`, 'bad')
       log(String(e?.stack || e))
     }
     lock(false)
