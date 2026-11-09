@@ -12,7 +12,8 @@
     "sync": "node scripts/sync.js",
     "shots": "node scripts/shots.js",
     "collect": "node scripts/collect.js",
-    "fmt": "npx -y prettier -w src scripts public migrations README.md action.yml wrangler.jsonc package.json"
+    "fmt": "npx -y prettier -w src scripts public migrations README.md action.yml wrangler.jsonc package.json",
+    "og": "node scripts/og.js"
   },
   "devDependencies": {
     "wrangler": "^4.156.0"

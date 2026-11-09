@@ -1468,7 +1468,7 @@ async function listingPage(request, env, url, id) {
   if (!row || row.hidden) return page // (the site says it's not found)
   const e = effective((await withShots(env, attachLatest([row], [])))[0])
   const abs = (u) => (u && u.startsWith('/') ? url.origin + u : u)
-  const image = abs(e.cover) || `${url.origin}/og.png`
+  const image = abs(e.cover) || `${url.origin}/og.png?v=2`
   const square = e.coverIsScreen || !e.cover // a 240x240 screen (or none): the small card fits it better
   const title = `${e.name} by ${e.author}`
   const devices = e.devices.map((d) => DEVICES[d] || d).join(' & ')
