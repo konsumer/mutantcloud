@@ -27,6 +27,7 @@ export function wrangler(args, { quiet = false, input, env = {}, allowFail = fal
     env: { ...process.env, ...accountEnv(), ...env },
     stdio: quiet || input !== undefined ? ['pipe', 'pipe', 'pipe'] : 'inherit'
   })
+  if (r.error?.code === 'ENOENT') throw new Error("wrangler isn't installed: run `npm install` first")
   if (r.status !== 0 && !allowFail) {
     if (quiet) process.stderr.write(r.stderr || r.stdout || '')
     throw new Error(`wrangler ${args.join(' ')} failed`)
