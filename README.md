@@ -78,6 +78,12 @@ Cards and listing pages also get **Install** for the latest (`/#/install/<id>`),
 
 The update protocol is [fomajam](https://konsumer.js.org/fomajam/)'s `web/fm1ota.js` and `web/fm1pkg.js`, copied unchanged into `public/vendor/` (GPL-3.0, their own license; the rest of this repo is MIT). `public/flash.js` is the part both pages share.
 
+### Polyend Tracker
+
+The Tracker, Tracker+ and Tracker Mini run [Tracker CE](https://github.com/polyend/tracker-ce), Polyend's open firmware, and its forks. They're the `tracker` device (`/?device=tracker`). A release's `.ptf` files are checked like `.fwsc` ones (sha256, size), and `ptfModel()` in `src/pkg.js` reads which model each is for from the image itself: a `.ptf` is Intel HEX, and each model's bootloader loads it at its own address (Tracker `0x0`, Tracker Mini `0x60020000`, Tracker+ `0x60030000`). The model is its `product` (`Tracker`, `Tracker+`, `Tracker Mini`), which isn't a device ID, so Tracker firmware never shows as sharing one.
+
+The collector searches GitHub for Tracker firmware, and Tracker CE is a base, so its forks are found and marked "built on" it. They're listed by the same rules as FM-1 firmware (a release with a `.ptf` of its own; a fork under the name `tracker-ce` is someone's build of it, and isn't). There's no browser install or emulator for them: a listing's page says how to install from the SD card, and flags a `.ptf` the Tracker's updater won't take because of its name (it has to start with `PolyendTrac`, `TrackerPlus` or `TrackerMini`). `/catalog.json` stays FM1 / SMK-37 only, since the apps that read it install over USB-MIDI.
+
 ### Device IDs
 
 Every package carries a device ID (like `FM-1_745`): what the device reports, and how installers and apps tell which firmware is running. Listings show it ("Device ID", and next to each file), and it's searchable (`?q=FM-1_745`). When other listings use the same ID, the listing gets a muted note naming them, since those firmwares can't be told apart. Many Felucca forks share Felucca's `FM-1_900`, for example.

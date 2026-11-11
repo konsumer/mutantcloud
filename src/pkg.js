@@ -1,5 +1,9 @@
-// .fwsc package checks, shared by the worker and scripts/collect.js.
-// product() is a port of fm1buddy's pkgHead (src/app/fm1.cpp) / tools/smk37.py product().
+// package checks, shared by the worker and scripts/collect.js:
+// .fwsc (M-VAVE FM1 / SMK-37): product() is a port of fm1buddy's pkgHead (src/app/fm1.cpp) / tools/smk37.py product().
+// .ptf (Polyend Tracker family): ptfModel() reads the Intel HEX firmware image.
+
+// files that are packages the hub checks
+export const PKG_FILE = /\.(fwsc|ptf)$/i
 
 const BLOCKS = 20
 const BLK = 0x30
@@ -37,6 +41,53 @@ export function deviceOf(p) {
   if (!p) return null
   if (/^FM-1_/i.test(p)) return 'fm1'
   if (/^(SMK-37|MKE-P37)/i.test(p)) return 'smk37'
+  if (TRACKERS.includes(p)) return 'tracker'
+  return null
+}
+
+// --- Polyend Tracker (.ptf) -----------------------------------------------
+// A .ptf is an Intel HEX image. Each model's bootloader puts it at its own address: the original Tracker (MK66)
+// at 0, the Tracker Mini at 0x60020000, the Tracker+ at 0x60030000 (i.MX RT). Its "product" is the model name.
+// (The Tracker's updater also wants the file named for its model: PolyendTrac…, TrackerMini…, TrackerPlus….)
+export const TRACKERS = ['Tracker', 'Tracker+', 'Tracker Mini']
+const TRACKER_AT = { 0x0000: 'Tracker', 0x6002: 'Tracker Mini', 0x6003: 'Tracker+' }
+const POLYEND = [...'Polyend'].map((c) => c.charCodeAt(0))
+
+const nib = (c) => (c >= 48 && c <= 57 ? c - 48 : c >= 65 && c <= 70 ? c - 55 : c >= 97 && c <= 102 ? c - 87 : -1)
+
+// the model a .ptf is for, or null if it isn't a Tracker firmware image (checksums must hold, and it must say Polyend)
+export function ptfModel(raw) {
+  if (!raw || raw.length < 64 || raw[0] !== 0x3a) return null
+  let upper = 0
+  let model
+  let match = 0
+  let i = 0
+  const rec = new Uint8Array(261)
+  while (i < raw.length) {
+    while (i < raw.length && (raw[i] === 0x0d || raw[i] === 0x0a)) i++
+    if (i >= raw.length) break
+    if (raw[i] !== 0x3a) return null
+    i++
+    // a record: count, address (2), type, data, checksum
+    let n = 0
+    let sum = 0
+    for (; i + 1 < raw.length && raw[i] !== 0x0d && raw[i] !== 0x0a; i += 2) {
+      const hi = nib(raw[i])
+      const lo = nib(raw[i + 1])
+      if (hi < 0 || lo < 0 || n >= rec.length) return null
+      rec[n] = (hi << 4) | lo
+      sum += rec[n++]
+    }
+    if (n < 5 || n !== rec[0] + 5 || sum & 0xff) return null
+    const type = rec[3]
+    if (type === 1) break
+    if (type === 4) upper = (rec[4] << 8) | rec[5]
+    else if (type === 0) {
+      if (model === undefined) model = TRACKER_AT[upper] || null
+      for (let j = 4; j < n - 1 && match < POLYEND.length; j++) match = rec[j] === POLYEND[match] ? match + 1 : rec[j] === POLYEND[0] ? 1 : 0
+      if (match === POLYEND.length && model !== undefined) return model
+    }
+  }
   return null
 }
 
@@ -111,7 +162,7 @@ export function chip(raw) {
 const hex = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('')
 
 // check one package URL: the whole file is fetched (the flash chip check reads the app inside it).
-// returns { sha256, size, product, chip? (FM-1: new, old, any or unknown) }, or null if it is not an installable package. Throws if it couldn't be
+// returns { sha256, size, product (FM-1_745, Tracker+…), chip? (FM-1: new, old, any or unknown) }, or null if it is not an installable package. Throws if it couldn't be
 // downloaded (worth trying again later, unlike a file that isn't a package). A GitHub digest saves hashing it.
 export async function inspect(url, { digest, headers = {} } = {}) {
   const r = await fetch(url, { headers, redirect: 'follow' })
@@ -126,7 +177,7 @@ export async function inspect(url, { digest, headers = {} } = {}) {
 // the same checks on a file already downloaded
 export async function check(buf, sha) {
   const raw = new Uint8Array(buf)
-  const p = product(raw.subarray(0, Math.min(raw.length, HEAD_BYTES)))
+  const p = raw[0] === 0x3a ? ptfModel(raw) : product(raw.subarray(0, Math.min(raw.length, HEAD_BYTES)))
   if (!p) return null
   // (an FM-1 package whose app can't be read is 'unknown', so it isn't looked at again)
   const c = deviceOf(p) === 'fm1' ? chip(raw) || 'unknown' : null

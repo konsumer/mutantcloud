@@ -1,5 +1,5 @@
 import { authorKey, DEVICES, KINDS, TAGS, BASES, BASE_INFO, baseOfRepo, isAdmin, FILTERS, matches, RESERVED, parseDeviceId, slugify, repoKey, repoOwner, cleanInput, cleanUrl, effective, canManage } from './entry.js'
-import { inspect, check, needsChip, deviceOf } from './pkg.js'
+import { inspect, check, needsChip, deviceOf, PKG_FILE } from './pkg.js'
 
 const SESSION_COOKIE = 'mc_session'
 const STATE_COOKIE = 'mc_oauth'
@@ -226,7 +226,7 @@ async function buildLists(env, origin) {
   all.sort((a, b) => (b.updated || '').localeCompare(a.updated || '') || a.name.localeCompare(b.name))
   return {
     '/firmware.json': {
-      about: 'Every firmware and tool for the M-VAVE FM1, SMK-37 and friends. Self-serve: sign in with GitHub at https://mutant.cloud to add or edit. /catalog.json has the same firmwares in The Firmware Hub format, one row per installable package.',
+      about: 'Every firmware and tool for the M-VAVE FM1, SMK-37, Polyend Tracker and friends. Self-serve: sign in with GitHub at https://mutant.cloud to add or edit. /catalog.json has the same firmwares in The Firmware Hub format, one row per installable package.',
       updated: synced,
       count: all.length,
       devices: DEVICES,
@@ -428,7 +428,8 @@ async function feed(request, env, ctx, url) {
 
 const HUB_KIND = { groovebox: 'groove', synth: 'synth', drums: 'drums', chords: 'chords', tracker: 'tracker' }
 // (a file the checks found gone or not a package isn't offered: the listing stays, as links only)
-const pkgs = (r) => (r?.assets || []).filter((a) => a.sha256 && a.product && a.size && !a.missing && !a.invalid && /^https:\/\//.test(a.url))
+// (FM1 / SMK-37 packages only: the Hub's format, and the apps that read it, are for those)
+const pkgs = (r) => (r?.assets || []).filter((a) => a.sha256 && a.product && a.size && !a.missing && !a.invalid && /^https:\/\//.test(a.url) && /\.fwsc$/i.test(a.name))
 const hubTime = (iso) => iso.slice(0, 16).replace('T', ' ') + ' UTC'
 
 function variantOf(file, e) {
@@ -701,7 +702,7 @@ async function me(request, env) {
 
 // --- GitHub repo info (same shape the collector writes) --------------------
 
-const FIRMWARE_FILE = /\.(fwsc|syx|bin|hex|uf2|zip)$/i
+const FIRMWARE_FILE = /\.(fwsc|ptf|syx|bin|hex|uf2|zip)$/i
 const SOURCE_FILE = /(source|src)[^/]*\.(zip|tar\.gz)$|\.tar\.gz$/i
 
 const relOf = (r) =>
@@ -712,12 +713,12 @@ const relOf = (r) =>
     prerelease: r.prerelease || undefined,
     assets: (r.assets || [])
       .filter((a) => FIRMWARE_FILE.test(a.name) && !SOURCE_FILE.test(a.name))
-      .sort((a, b) => /\.fwsc$/i.test(b.name) - /\.fwsc$/i.test(a.name))
+      .sort((a, b) => PKG_FILE.test(b.name) - PKG_FILE.test(a.name))
       .slice(0, 12)
       .map((a) => ({ name: a.name, url: a.browser_download_url, size: a.size, _digest: a.digest || undefined }))
   }
 
-// check the .fwsc files of the given releases (sha256, size, product); results go on matching assets in `also` too.
+// check the packages (.fwsc, .ptf) of the given releases (sha256, size, product); results go on matching assets in `also` too.
 // A file that isn't a package is marked `invalid`, one that couldn't be downloaded `unchecked` (both with the
 // date): the site shows a "might not install" note, and the watcher's re-check tries them again.
 async function checkAssets(rels, also = []) {
@@ -726,7 +727,7 @@ async function checkAssets(rels, also = []) {
   const todo = rels
     .filter(Boolean)
     .flatMap((r) => r.assets || [])
-    .filter((a) => /\.fwsc$/i.test(a.name) && !a.sha256)
+    .filter((a) => PKG_FILE.test(a.name) && !a.sha256)
     .slice(0, 12)
   await Promise.all(
     todo.map(async (a) => {
@@ -1126,7 +1127,7 @@ async function activity(env) {
 // --- release watcher (cron) -----------------------------------------------
 // Each run checks the repos checked longest ago, through their public releases feed
 // (github.com/OWNER/REPO/releases.atom: no API, no token, no rate-limit budget). Only a tag it hasn't seen
-// costs more: that release's page and file list, and a check of its .fwsc packages. Makers' CI publishes
+// costs more: that release's page and file list, and a check of its packages. Makers' CI publishes
 // (/api/publish) still land instantly; this catches everyone else within a few hours.
 
 const WATCH_BATCH = 20 // repos per run
@@ -1169,7 +1170,7 @@ async function readRelease(repo, { tag, date }) {
     prerelease: prerelease || undefined,
     assets: assets
       .filter((a) => FIRMWARE_FILE.test(a.name) && !SOURCE_FILE.test(a.name))
-      .sort((a, b) => /\.fwsc$/i.test(b.name) - /\.fwsc$/i.test(a.name))
+      .sort((a, b) => PKG_FILE.test(b.name) - PKG_FILE.test(a.name))
       .slice(0, 12)
   }
 }
@@ -1221,7 +1222,7 @@ async function watchReleases(env) {
       budget -= 2
       const v = await readRelease(repo, f)
       if (!v) continue
-      const pkgs = v.assets.filter((a) => /\.fwsc$/i.test(a.name)).length
+      const pkgs = v.assets.filter((a) => PKG_FILE.test(a.name)).length
       if (pkgs > budget) {
         finished = false
         break
@@ -1383,7 +1384,7 @@ async function addChip(a) {
   return 'updated'
 }
 
-// a .fwsc whose check failed: try again (one that wasn't a package, at most weekly)
+// a package whose check failed: try again (one that wasn't a package, at most weekly)
 async function retryFile(a) {
   if (a.invalid && a.checked && daysSince(a.checked) < 7) return 'skip'
   const before = JSON.stringify(a)
@@ -1414,7 +1415,7 @@ async function verifyFiles(env) {
       const assets = JSON.parse(rel.assets || '[]')
       let dirty = false
       for (const a of assets) {
-        if (!a.url || !/\.fwsc$/i.test(a.name)) continue
+        if (!a.url || !PKG_FILE.test(a.name)) continue
         const how = !a.sha256 ? retryFile : githubRelease(a.url) ? checkGithubFile : pinnedFile(a.url) ? (needsChip(a) ? addChip : null) : checkFile
         if (!how) continue
         if (budget < 2) {
@@ -1519,7 +1520,8 @@ async function idsInUse(env) {
   for (const r of results) {
     const name = { ...JSON.parse(r.auto || '{}'), ...JSON.parse(r.data || '{}') }.name || r.entry
     for (const a of JSON.parse(r.assets || '[]')) {
-      if (!a.product) continue
+      // (a Tracker's .ptf names only its model, not an ID)
+      if (!a.product?.includes('_')) continue
       const list = (ids[a.product] ||= [])
       const have = list.find((x) => x.id === r.entry)
       if (have) have.versions.push(r.version)

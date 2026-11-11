@@ -2,7 +2,8 @@
 
 export const DEVICES = {
   fm1: 'FM1',
-  smk37: 'SMK-37'
+  smk37: 'SMK-37',
+  tracker: 'Polyend Tracker'
 }
 
 export const KINDS = {
@@ -18,6 +19,7 @@ export const TAGS = {
 
 // firmware families (what it is built on): display name, and the repo that is the base.
 // Forks of the repo (GitHub "parent") and repos made from it as a template are detected as built on it.
+// `devices`: a base for other gear than the FM1 / SMK-37 (it isn't one of the FM1 guide's starting points)
 export const BASE_INFO = {
   felucca: { name: 'Felucca', repo: 'hugelton/Felucca', license: 'GPL-3.0' },
   dinghy: { name: 'Dinghy', repo: 'zvenson/dinghy', license: 'GPL-3.0', template: true },
@@ -28,6 +30,7 @@ export const BASE_INFO = {
   fomni: { name: 'FoMni', repo: 'charlesvestal/fm1-fomni' },
   x0x: { name: 'X0X', repo: 'charlesvestal/fm1-x0x' },
   stock: { name: 'M-VAVE stock', repo: 'm-vave/fm1_open' },
+  trackerce: { name: 'Tracker CE', repo: 'polyend/tracker-ce', license: 'MIT', devices: ['tracker'] },
   original: { name: 'its own code' }
 }
 export const BASES = Object.keys(BASE_INFO)
@@ -83,7 +86,8 @@ const nameSlug = (s) =>
 export const authorKey = (e) => (e.github || nameSlug(e.author)).toLowerCase()
 
 // the device IDs ("FM-1_745") a listing's current files report: what devices and apps identify it by
-export const deviceIds = (e) => [...new Set([...(e.release?.assets || []), ...(e.prerelease?.assets || [])].map((a) => a.product).filter(Boolean))]
+// (a Tracker's .ptf only names its model, "Tracker+", which isn't an ID: every Tracker firmware has it)
+export const deviceIds = (e) => [...new Set([...(e.release?.assets || []), ...(e.prerelease?.assets || [])].map((a) => a.product).filter((p) => p && p.includes('_')))]
 
 // a device ID as typed: "FM-1_745", "fm-1 745", or just "745" (an FM-1 one); null if it isn't one
 export const ID_MODELS = ['FM-1', 'SMK-37 Pro', 'SMK-37 Elite', 'MKE-P37']

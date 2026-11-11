@@ -103,7 +103,7 @@ const savesOnNew = (e) => ['new', 'any'].includes(chipOf(e))
 const CHIP_NOTE = { new: 'saves on every FM-1', any: "doesn't check the flash chip", old: 'first FM-1s only: no saves on newer ones' }
 const TESTED_NOTE = { new: 'tested on newer FM-1s', old: 'tested: first FM-1s only' }
 
-const deviceIds = (e) => [...new Set([...(e.release?.assets || []), ...(e.prerelease?.assets || [])].map((a) => a.product).filter(Boolean))]
+const deviceIds = (e) => [...new Set([...(e.release?.assets || []), ...(e.prerelease?.assets || [])].map((a) => a.product).filter((p) => p && p.includes('_')))]
 // other listings whose current files report the same device ID
 // (built once per load of the list: device ID -> the listings that report it)
 let ID_INDEX = { data: null, map: new Map() }
@@ -579,7 +579,7 @@ function detail(e) {
     ${e.cover ? `<div class="shots"><img class="shot${e.coverIsScreen ? ' screen' : ''}" src="${safe(e.cover)}" ${fallback(e)} alt="" loading="lazy" onerror="picFail(this)" /></div>` : ''}
     ${e.description ? `<p class="lead">${esc(e.description)}</p>` : ''}
     <div class="actions">${emuFor(e) ? `<a class="btn primary" href="#/try/${esc(e.id)}">▶ Try it in your browser</a>` : ''}${installIt(e)?.href ? `<a class="btn" href="${esc(installIt(e).href)}" title="${esc(installIt(e).title)}">Install the latest</a>` : ''}${links.map((l, i) => ext(l.url, l.label, i === 0 && !emuFor(e) ? 'btn primary' : 'btn')).join('')}<button type="button" class="btn ghost" data-copy="${esc(pageUrl(e))}" title="Its own page: shows its picture when you share it">Copy link</button></div>
-    ${f.length ? `<h3>Files${e.release?.version ? ` <span class="mono by">${esc(e.release.version)}</span>` : ''}</h3>${fileList(f, e)}` : ''}
+    ${f.length ? `<h3>Files${e.release?.version ? ` <span class="mono by">${esc(e.release.version)}</span>` : ''}</h3>${fileList(f, e)}${f.some(isPtf) ? PTF_HOWTO : ''}` : ''}
     <div id="history"></div>
     <dl class="facts">
       ${
@@ -622,8 +622,17 @@ function detail(e) {
 
 // a version's files; a package for a known device gets an Install button (#/install/<id>/<file>)
 // a listing's tested chip goes on the FM-1 packages of what it shows now (not older versions: those weren't tested)
+// a Polyend Tracker's .ptf: the Tracker's updater only takes one named for its model, so a misnamed file says so
+const PTF_PREFIX = { Tracker: 'PolyendTrac', 'Tracker+': 'TrackerPlus', 'Tracker Mini': 'TrackerMini' }
+const ptfNote = (a) => {
+  const want = /\.ptf$/i.test(a.name) && PTF_PREFIX[a.product]
+  return want && !a.name.startsWith(want) ? `<span class="chipnote old" title="The Tracker only installs firmware files whose name starts with ${esc(want)}">rename it to start with ${esc(want)}</span>` : ''
+}
+const isPtf = (a) => /\.ptf$/i.test(a.name) && !!PTF_PREFIX[a.product]
+const PTF_HOWTO = '<p class="note muted">To install a <code>.ptf</code> on your Polyend Tracker: copy the one for your model into the <code>Firmware</code> folder on its microSD card, then on the Tracker go to <b>Config › Firmware › Firmware update</b> and pick it. If it won\'t start, put the file there on its own and press the recessed reset button to have the bootloader install it.</p>'
+
 const tested = (e, a) => !!e?.chip && /^FM-1_/.test(a.product || '') && [...(e.release?.assets || []), ...(e.prerelease?.assets || [])].includes(a)
-const fileList = (f, e) => `<ul class="files">${f.map((a) => `<li><a href="${safe(a.url)}">${esc(a.name)}</a><span class="fmeta"><span class="mono">${a.product ? `${esc(a.product)} · ` : ''}${fmtSize(a.size)}</span>${tested(e, a) ? `<span class="chipnote${e.chip === 'old' ? ' old' : ''}" title="Tried on an FM-1 with the newer flash chip (0xB36014)">${TESTED_NOTE[e.chip]}</span>` : CHIP_NOTE[a.chip] ? `<span class="chipnote${a.chip === 'old' ? ' old' : ''}" title="Its flash chip support, read from the package">${CHIP_NOTE[a.chip]}</span>` : ''}${e && isPackage(a) && !a.missing && !a.invalid ? `<a class="btn small" href="#/install/${esc(e.id)}/${esc(encodeURIComponent(a.name))}" title="Write it to your ${esc(deviceName(a.product))} over USB, from this page">Install</a>` : ''}</span></li>`).join('')}</ul>`
+const fileList = (f, e) => `<ul class="files">${f.map((a) => `<li><a href="${safe(a.url)}">${esc(a.name)}</a><span class="fmeta"><span class="mono">${a.product ? `${esc(a.product)} · ` : ''}${fmtSize(a.size)}</span>${ptfNote(a)}${tested(e, a) ? `<span class="chipnote${e.chip === 'old' ? ' old' : ''}" title="Tried on an FM-1 with the newer flash chip (0xB36014)">${TESTED_NOTE[e.chip]}</span>` : CHIP_NOTE[a.chip] ? `<span class="chipnote${a.chip === 'old' ? ' old' : ''}" title="Its flash chip support, read from the package">${CHIP_NOTE[a.chip]}</span>` : ''}${e && isPackage(a) && !a.missing && !a.invalid ? `<a class="btn small" href="#/install/${esc(e.id)}/${esc(encodeURIComponent(a.name))}" title="Write it to your ${esc(deviceName(a.product))} over USB, from this page">Install</a>` : ''}</span></li>`).join('')}</ul>`
 
 // installing the latest from the card: the device is asked what it is, and that model's file is picked from the
 // latest release (its prerelease when only that has one). Several (old and new builds side by side: the one named
@@ -774,7 +783,7 @@ function makeSheet() {
   for (const e of DATA.entries) if (e.base) counts[e.base] = (counts[e.base] || 0) + 1
   // every starting point we know, most built-upon first (no favourites), with its own listing's description
   const starters = Object.entries(DATA.bases)
-    .filter(([k]) => baseEntry(k)?.description)
+    .filter(([k, b]) => !b.devices && baseEntry(k)?.description)
     .sort(([a, x], [b, y]) => (counts[b] || 0) - (counts[a] || 0) || x.name.localeCompare(y.name))
   const next = encodeURIComponent('/#/new')
   const add = ME.user ? '<a class="btn primary" href="#/new">Add your firmware</a>' : `<a class="btn primary" href="/auth/login?next=${next}">Sign in with GitHub to add it</a>`
@@ -793,6 +802,7 @@ function makeSheet() {
         </li>`
       )
       .join('')}</ul>
+    <p class="by">For the Polyend Tracker, Tracker+ or Tracker Mini: fork <a href="https://github.com/polyend/tracker-ce" target="_blank" rel="noopener">Tracker CE</a>, give it a name of its own, and attach your <code>.ptf</code> builds to a GitHub release. The hub reads which model each one is for, and your listing shows it's built on Tracker CE. (The steps below are for the FM1 and SMK-37.)</p>
 
     <h3><span class="num">2</span> Try it without flashing</h3>
     <p>The <a href="https://joakimeriksson.github.io/fm1-emu/" target="_blank" rel="noopener">FM-1 emulator</a> runs a <code>.fwsc</code> in your browser (FM1 and SMK-37), so you can check it boots before you put it on a device.</p>

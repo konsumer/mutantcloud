@@ -1,17 +1,17 @@
 #!/usr/bin/env node
-// Collects FM1 / SMK-37 firmwares + tools from the other hubs, GitHub and Reddit, merges them,
+// Collects FM1 / SMK-37 (and Polyend Tracker) firmwares + tools from the other hubs, GitHub and Reddit, merges them,
 // and writes data/auto.json + data/auto.sql (an upsert of the "auto" column only, so
 // anything people edited by hand is never touched).
 //
 // Every .fwsc in the latest release is checked like fm1buddy does (sha256, size, and the device it says it's for),
-// so /catalog.json can list it. Results are cached by URL (data/pkgcache.json, the live catalog, FMDB's checks).
+// so /catalog.json can list it. A Tracker's .ptf is checked too (sha256, size, and the model it's built for). Results are cached by URL (data/pkgcache.json, the live catalog, FMDB's checks).
 //
 // env: GITHUB_TOKEN (optional, else `gh auth token`; enables the GitHub refresh), SITE_URL (to keep ids stable)
 
 import { readFile, writeFile, mkdir } from 'node:fs/promises'
 import { spawnSync } from 'node:child_process'
 import { slugify, parseRepo, repoKey, cleanUrl, baseOfRepo, BASE_INFO, RESERVED } from '../src/entry.js'
-import { inspect, deviceOf, needsChip } from '../src/pkg.js'
+import { inspect, deviceOf, needsChip, PKG_FILE } from '../src/pkg.js'
 import { ghToken, wrangler, parseJson, DB_NAME } from './wrangler.js'
 
 // --full: re-read everything (every repo on GitHub, every listing). Default: only listings that aren't in the
@@ -60,12 +60,12 @@ const brief = (s, max = 320) => {
   return end > 80 ? cut.slice(0, end + 1) : cut.replace(/\s+\S*$/, '') + '…'
 }
 
-const FIRMWARE_FILE = /\.(fwsc|syx|bin|hex|uf2|zip)$/i
+const FIRMWARE_FILE = /\.(fwsc|ptf|syx|bin|hex|uf2|zip)$/i
 const SOURCE_FILE = /(source|src)[^/]*\.(zip|tar\.gz)$|\.tar\.gz$/i
 const pickAssets = (assets = []) =>
   assets
     .filter((a) => FIRMWARE_FILE.test(a.name) && !SOURCE_FILE.test(a.name))
-    .sort((a, b) => /\.fwsc$/i.test(b.name) - /\.fwsc$/i.test(a.name))
+    .sort((a, b) => PKG_FILE.test(b.name) - PKG_FILE.test(a.name))
     .slice(0, 12)
     .map((a) => ({ name: a.name, url: a.url, size: a.size || undefined, _digest: a.digest || undefined }))
 
@@ -467,7 +467,7 @@ async function github(repos) {
 // A fork only counts when its main branch has commits of its own and it made a release: forks for a pull request,
 // and copies with nothing changed, are never their own thing.
 
-const SEARCHES = ['m-vave in:name,description,readme', 'mvave in:name,description,readme', 'felucca in:name,description,readme', 'fwsc in:name,description,readme', 'smk-37 in:name,description', 'smk37 in:name,description,readme', '"fm-1" firmware in:name,description,readme', 'fm1 firmware in:name,description,readme', 'topic:fm1', 'topic:mvave']
+const SEARCHES = ['m-vave in:name,description,readme', 'mvave in:name,description,readme', 'felucca in:name,description,readme', 'fwsc in:name,description,readme', 'smk-37 in:name,description', 'smk37 in:name,description,readme', '"fm-1" firmware in:name,description,readme', 'fm1 firmware in:name,description,readme', 'topic:fm1', 'topic:mvave', '"polyend tracker" in:name,description,readme', 'tracker-ce in:name,description', 'topic:polyend-tracker']
 // what a repo says about itself to be for the FM-1 or SMK-37 (M-VAVE alone is their other gear too; "FM1" next to more
 // digits is other gear: FM150 radios, FM170 modems)
 const ABOUT_FM1 = /fm-?1(?![0-9])|smk-?37|mke-?p37|felucca|sloop|\bfwsc\b/i
@@ -628,7 +628,9 @@ async function fromGithub(roots) {
     items.push({ src: 'github', repo: f.repo, name: f.repo.split('/')[1], kind: 'firmware', links: [], found: { fork: f.parent, ahead } })
   }
   log(`  github forks with changes of their own: ${items.length}`)
-  for (const repo of hits.keys()) items.push({ src: 'github', repo, name: repo.split('/')[1], kind: 'firmware', links: [], found: {} })
+  // (a base found by the searches gets its own name: "Tracker CE", not "tracker-ce")
+  const baseName = (repo) => Object.values(BASE_INFO).find((b) => repoKey(b.repo) === repoKey(repo))?.name
+  for (const repo of hits.keys()) items.push({ src: 'github', repo, name: baseName(repo) || repo.split('/')[1], kind: 'firmware', links: [], found: {} })
   await writeFile(cacheFile, JSON.stringify(cache) + '\n')
   return items
 }
@@ -860,7 +862,7 @@ async function checkPackages(entries) {
   for (const e of entries) {
     for (const a of [...(e.release?.assets || []), ...(e.prerelease?.assets || [])]) {
       // (and FM-1 packages checked before the flash chip check)
-      if (/\.fwsc$/i.test(a.name) && (!PKG.has(a.url) || needsChip(PKG.get(a.url)))) todo.set(a.url, a)
+      if (PKG_FILE.test(a.name) && (!PKG.has(a.url) || needsChip(PKG.get(a.url)))) todo.set(a.url, a)
     }
   }
   log(`checking ${todo.size} packages (${PKG.size} known)…`)
@@ -917,6 +919,8 @@ function listed() {
     if (!r.repo && !e.repo && e.name) for (const k of looseKeys(e)) db.loose.add(k)
     if (!r.repo && !e.repo) for (const u of [e.homepage, ...(e.links || []).map((l) => l.url)]) if (u && repoOfUrl(u)) db.pages.add(repoKey(repoOfUrl(u)))
     db.keys.set(e.repo ? repoKey(e.repo) : keyOf({ name: e.name || r.id, homepage: e.homepage, links: e.links }), r.id)
+    // (what's listed, so a found copy of it isn't: the live catalog has only the FM1 / SMK-37 packages)
+    for (const a of [...(e.release?.assets || []), ...(e.prerelease?.assets || [])]) if (a.sha256) LISTED_SHA.add(a.sha256)
   }
   return db
 }
@@ -1000,12 +1004,12 @@ async function main() {
   await checkPackages(entries)
 
   // what GitHub discovery alone found is listed automatically, or not at all (nobody reviews a queue):
-  // - firmware: its latest release has an installable FM-1 / SMK-37 package that isn't a listed file
+  // - firmware: its latest release has an installable FM-1 / SMK-37 package (or a Polyend Tracker .ptf) that isn't a listed file
   // - a tool: it says it's for the FM-1 / SMK-37 in its name or description, was worked on since that had firmware of
   //   its own, and its latest release has files
   // Never: forks under their parent's name (someone's build of it), copies, packages for other gear on the same chip.
   // One listed wrongly is hidden by an admin, and stays hidden (the sync never adds a listed repo again).
-  // (packages for the FM-1 and the SMK-37 family only: the same chip runs other makers' gear too)
+  // (packages for our devices only: the FM-1's chip runs other makers' gear too)
   const pkgs = (e) => [...(e.release?.assets || []), ...(e.prerelease?.assets || [])].filter((a) => a.sha256 && a.product && deviceOf(a.product))
   for (const e of entries) {
     if (foundOnly(e)) continue
