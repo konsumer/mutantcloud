@@ -629,7 +629,7 @@ const ptfNote = (a) => {
   return want && !a.name.startsWith(want) ? `<span class="chipnote old" title="The Tracker only installs firmware files whose name starts with ${esc(want)}">rename it to start with ${esc(want)}</span>` : ''
 }
 const isPtf = (a) => /\.ptf$/i.test(a.name) && !!PTF_PREFIX[a.product]
-const PTF_HOWTO = '<p class="note muted">To install a <code>.ptf</code> on your Polyend Tracker: copy the one for your model into the <code>Firmware</code> folder on its microSD card, then on the Tracker go to <b>Config › Firmware › Firmware update</b> and pick it. If it won\'t start, put the file there on its own and press the recessed reset button to have the bootloader install it.</p>'
+const PTF_HOWTO = '<p class="note muted">To install a <code>.ptf</code> on your Tracker: copy the one for your model into the <code>Firmware</code> folder on its microSD card, then on the Tracker go to <b>Config › Firmware › Firmware update</b> and pick it. If it won\'t start, put the file there on its own and press the recessed reset button to have the bootloader install it.</p>'
 
 const tested = (e, a) => !!e?.chip && /^FM-1_/.test(a.product || '') && [...(e.release?.assets || []), ...(e.prerelease?.assets || [])].includes(a)
 const fileList = (f, e) => `<ul class="files">${f.map((a) => `<li><a href="${safe(a.url)}">${esc(a.name)}</a><span class="fmeta"><span class="mono">${a.product ? `${esc(a.product)} · ` : ''}${fmtSize(a.size)}</span>${ptfNote(a)}${tested(e, a) ? `<span class="chipnote${e.chip === 'old' ? ' old' : ''}" title="Tried on an FM-1 with the newer flash chip (0xB36014)">${TESTED_NOTE[e.chip]}</span>` : CHIP_NOTE[a.chip] ? `<span class="chipnote${a.chip === 'old' ? ' old' : ''}" title="Its flash chip support, read from the package">${CHIP_NOTE[a.chip]}</span>` : ''}${e && isPackage(a) && !a.missing && !a.invalid ? `<a class="btn small" href="#/install/${esc(e.id)}/${esc(encodeURIComponent(a.name))}" title="Write it to your ${esc(deviceName(a.product))} over USB, from this page">Install</a>` : ''}</span></li>`).join('')}</ul>`
@@ -802,7 +802,7 @@ function makeSheet() {
         </li>`
       )
       .join('')}</ul>
-    <p class="by">For the Polyend Tracker, Tracker+ or Tracker Mini: fork <a href="https://github.com/polyend/tracker-ce" target="_blank" rel="noopener">Tracker CE</a>, give it a name of its own, and attach your <code>.ptf</code> builds to a GitHub release. The hub reads which model each one is for, and your listing shows it's built on Tracker CE. (The steps below are for the FM1 and SMK-37.)</p>
+    <p class="by">For the Tracker, Tracker+ or Tracker Mini: fork <a href="https://github.com/polyend/tracker-ce" target="_blank" rel="noopener">Tracker CE</a>, give it a name of its own, and attach your <code>.ptf</code> builds to a GitHub release. The hub reads which model each one is for, and your listing shows it's built on Tracker CE. (The steps below are for the FM1 and SMK-37.)</p>
 
     <h3><span class="num">2</span> Try it without flashing</h3>
     <p>The <a href="https://joakimeriksson.github.io/fm1-emu/" target="_blank" rel="noopener">FM-1 emulator</a> runs a <code>.fwsc</code> in your browser (FM1 and SMK-37), so you can check it boots before you put it on a device.</p>
