@@ -14,6 +14,9 @@ export const modelOf = (product) =>
     .split('_')[0]
     .replace(/^ota-/i, '')
 export const deviceName = (product) => DEVICE_NAMES[modelOf(product)] || modelOf(product)
+// the SMK-37 Pro, SMK-37 Elite and MKE-P37 are one keyboard under three names: what it says it is comes from its
+// firmware, and each takes the others' packages (the update loaders don't check), so one can be put back to its own
+export const isSmk = (product) => ['SMK-37 Pro', 'SMK-37 Elite', 'MKE-P37'].includes(modelOf(product))
 export const isPackage = (a) => /\.fwsc$/i.test(a?.name || '') && !!DEVICE_NAMES[modelOf(a.product)]
 
 const TEXT = {
@@ -46,18 +49,24 @@ const TIPS = `<ul class="tips">
 </ul>`
 
 // fm1ota only asks ports with the names it knows (FM-1, SMK, Felucca, ...). Firmwares name their own (fomajam's is
-// FOMAJAM), so when none of those answers, every port is asked (other gear ignores the identity question)
+// FOMAJAM), so when none of those answers, every port is asked (other gear ignores the identity question).
+// as: an SMK-37 model to take any SMK-37 as (fm1ota checks the model it reports against the package's)
 class HubUpdater extends Updater {
   async find(filter) {
-    const dev = await super.find(filter)
+    const dev = this.relabel(await super.find(filter))
     if (dev) return dev
     const known = this.names
     this.names = [...this.access.inputs.values()].map((p) => (p.name || '').toLowerCase()).filter(Boolean)
     try {
-      return await super.find(filter)
+      return this.relabel(await super.find(filter))
     } finally {
       this.names = known
     }
+  }
+
+  relabel(dev) {
+    if (dev && this.as && isSmk(dev.id.model)) dev.id.model = dev.id.model.replace(/^(ota-)?.*$/i, `$1${this.as}`)
+    return dev
   }
 }
 
@@ -106,8 +115,9 @@ async function load(pkg) {
   return { raw, product }
 }
 
-// the device as it is now, the package, and the check that it's for that model
-export function checkFor(dev, product) {
+// the device as it is now, the package, and the check that it's for that model (anySmk: or any SMK-37's on an SMK-37)
+export function checkFor(dev, product, { anySmk = false } = {}) {
+  if (anySmk && isSmk(dev.model) && isSmk(product)) return ''
   if (!sameModel(dev.model, modelOf(product))) return `It's for the ${esc(deviceName(product))}, and this is ${describe(dev)} Nothing will be written.`
   return ''
 }
@@ -142,6 +152,8 @@ export function mountFlasher(el, { pick, verb = 'Install', intro = '' }) {
     find.disabled = b
   }
   let ready = null
+  // (another SMK-37 model's: what it becomes)
+  const label = () => (go.textContent = ready.pkg.anySmk ? `Make it an ${deviceName(ready.pkg.product)}` : `${verb} on this ${deviceName(ready.dev.model)}`)
   const next = (b) => {
     find.classList.toggle('primary', b === find)
     go.classList.toggle('primary', b === go)
@@ -165,15 +177,20 @@ export function mountFlasher(el, { pick, verb = 'Install', intro = '' }) {
           // builds for the same model (variants): the first is picked until another is
           ready = { dev, pkg: p.choices[0] }
           const group = `fl-pick-${Math.random().toString(36).slice(2)}`
-          say(`Found ${describe(dev)}<br>${p.note ? p.note + ' ' : ''}It has ${p.choices.length} builds for it. Pick one:<div class="choices">${p.choices.map((c, i) => `<label><input type="radio" name="${group}" value="${i}"${i ? '' : ' checked'} /> <span class="mono">${esc(c.label)}</span></label>`).join('')}</div>Keep it plugged in until it says done.`, 'ok')
-          for (const r of st.querySelectorAll('input[type=radio]')) r.onchange = () => ready && (ready.pkg = p.choices[+r.value])
+          say(`Found ${describe(dev)}<br>${p.note ? p.note + ' ' : ''}${p.ask || `It has ${p.choices.length} builds for it. Pick one:`}<div class="choices">${p.choices.map((c, i) => `<label><input type="radio" name="${group}" value="${i}"${i ? '' : ' checked'} /> <span class="mono">${esc(c.label)}</span></label>`).join('')}</div>Keep it plugged in until it says done.`, 'ok')
+          for (const r of st.querySelectorAll('input[type=radio]'))
+            r.onchange = () => {
+              if (!ready) return
+              ready.pkg = p.choices[+r.value]
+              label()
+            }
         } else {
           ready = { dev, pkg: p.pkg }
           const same = !dev.ota && dev.text === p.pkg.product
           say(`Found ${describe(dev)}<br>${p.note ? p.note + ' ' : ''}Ready to write <b>${esc(p.pkg.label)}</b>${same ? ' (it already runs this: installing again is fine)' : ''}. Keep it plugged in until it says done.`, 'ok')
         }
         if (ready) {
-          go.textContent = `${verb} on this ${deviceName(dev.model)}`
+          label()
           go.disabled = false
           next(go)
         }
@@ -204,9 +221,10 @@ export function mountFlasher(el, { pick, verb = 'Install', intro = '' }) {
       dev = await detect(log)
       if (!dev) throw Object.assign(new Error(''), { code: 'notfound' })
       want = product
-      const bad = checkFor(dev, product)
+      const bad = checkFor(dev, product, pkg)
       if (bad) throw new Error(bad.replace(/<[^>]+>/g, ''))
       const up = new HubUpdater(await midi(), log)
+      if (pkg.anySmk) up.as = modelOf(product)
       const image = logicalImage(raw)
       const total = 74 + Math.ceil(image.length / 512)
       const step = (k, a) => {

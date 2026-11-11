@@ -1,6 +1,6 @@
 // mutant.cloud/rescue: stock firmware back on, or an install that was cut off finished (flash.js)
 
-import { mountFlasher, checkFor, deviceName, isPackage } from './flash.js'
+import { mountFlasher, checkFor, deviceName, isPackage, isSmk, modelOf } from './flash.js'
 import { productOf } from './vendor/fm1pkg.js'
 
 const $ = (s) => document.querySelector(s)
@@ -25,6 +25,17 @@ stockFiles()
         const a = files.find((x) => !checkFor(dev, x.product))
         if (!a) return { problem: "There's no stock file for that model here." }
         return { pkg: { url: `/dl/${e.id}/${encodeURIComponent(a.name)}`, sha256: a.sha256, product: a.product, label: `M-VAVE stock ${a.product}` } }
+      }
+    })
+    // the wrong model: another SMK-37 model's stock (any, when it's in update mode: that could be either)
+    const smk = files.filter((a) => isSmk(a.product))
+    mountFlasher($('#smkmodel'), {
+      verb: 'Install stock',
+      pick(dev) {
+        if (!isSmk(dev.model)) return { problem: 'This is for the SMK-37 and MKE-P37 only.' }
+        const choices = smk.filter((a) => dev.ota || modelOf(a.product) !== dev.model).map((a) => ({ url: `/dl/${e.id}/${encodeURIComponent(a.name)}`, sha256: a.sha256, product: a.product, label: `${deviceName(a.product)} (M-VAVE stock ${a.product})`, anySmk: true }))
+        if (!choices.length) return { problem: "There's no stock file for the other models here." }
+        return { choices, ask: 'Pick the model on its box:' }
       }
     })
   })
