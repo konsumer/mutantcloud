@@ -44,8 +44,15 @@
         <div id="stock"></div>
       </section>
 
+      <section class="panel" style="--h: 260">
+        <h2><span class="num">2</span>An SMK-37 that says it's another model</h2>
+        <p>The SMK-37 Pro, SMK-37 Elite and MKE-P37 are one keyboard under three names, and the name it shows comes from its firmware. Installing one model's firmware on another (an Elite's on a Pro) makes it say it's that model, and the matching stock file above keeps it that way.</p>
+        <p>Here it takes any of the three: pick the name on its box, and its stock <b>V16</b> goes on. Its calibration (keys, pads, wheels) isn't touched.</p>
+        <div id="smkmodel"></div>
+      </section>
+
       <section class="panel" style="--h: 170">
-        <h2><span class="num">2</span>A file of your own</h2>
+        <h2><span class="num">3</span>A file of your own</h2>
         <p>Any <code>.fwsc</code> package: finish the install that was cut off with the firmware you were installing, or put on another one. It still has to be for the model that's plugged in.</p>
         <label class="field"><span>Package</span><input type="file" id="own" accept=".fwsc" /></label>
         <p id="owninfo" class="dim"></p>
@@ -53,7 +60,7 @@
       </section>
 
       <section class="panel" style="--h: 40">
-        <h2><span class="num">3</span>Nothing answers</h2>
+        <h2><span class="num">4</span>Nothing answers</h2>
         <p>Everything above uses the update mode that firmwares and M-VAVE's updater use, over MIDI. If the device doesn't show up at all:</p>
         <ul>
           <li>Try another cable (a data cable), another USB port, and no hub. Switch it off and on.</li>
