@@ -3,7 +3,9 @@
 export const DEVICES = {
   fm1: 'FM1',
   smk37: 'SMK-37',
-  tracker: 'Polyend Tracker'
+  tracker: 'Tracker',
+  trackerplus: 'Tracker+',
+  trackermini: 'Tracker Mini'
 }
 
 export const KINDS = {
@@ -30,7 +32,7 @@ export const BASE_INFO = {
   fomni: { name: 'FoMni', repo: 'charlesvestal/fm1-fomni' },
   x0x: { name: 'X0X', repo: 'charlesvestal/fm1-x0x' },
   stock: { name: 'M-VAVE stock', repo: 'm-vave/fm1_open' },
-  trackerce: { name: 'Tracker CE', repo: 'polyend/tracker-ce', license: 'MIT', devices: ['tracker'] },
+  trackerce: { name: 'Tracker CE', repo: 'polyend/tracker-ce', license: 'MIT', devices: ['tracker', 'trackerplus', 'trackermini'] },
   original: { name: 'its own code' }
 }
 export const BASES = Object.keys(BASE_INFO)

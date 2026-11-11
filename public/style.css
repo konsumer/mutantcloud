@@ -1252,8 +1252,11 @@ form.edit {
   .controls {
     position: static;
   }
+  /* (more devices than fit in a row: they wrap) */
   .seg {
     flex: 1 1 100%;
+    flex-wrap: wrap;
+    border-radius: 20px;
   }
   select {
     flex: 1 1 100%;
@@ -1282,6 +1285,7 @@ form.edit {
   }
   .seg button {
     flex: 1;
+    white-space: nowrap;
   }
   .links-ed .lrow {
     grid-template-columns: 1fr auto;

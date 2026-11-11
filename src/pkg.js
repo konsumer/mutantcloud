@@ -41,7 +41,7 @@ export function deviceOf(p) {
   if (!p) return null
   if (/^FM-1_/i.test(p)) return 'fm1'
   if (/^(SMK-37|MKE-P37)/i.test(p)) return 'smk37'
-  if (TRACKERS.includes(p)) return 'tracker'
+  if (TRACKER_DEVICE[p]) return TRACKER_DEVICE[p]
   return null
 }
 
@@ -50,6 +50,8 @@ export function deviceOf(p) {
 // at 0, the Tracker Mini at 0x60020000, the Tracker+ at 0x60030000 (i.MX RT). Its "product" is the model name.
 // (The Tracker's updater also wants the file named for its model: PolyendTrac…, TrackerMini…, TrackerPlus….)
 export const TRACKERS = ['Tracker', 'Tracker+', 'Tracker Mini']
+// each model is its own device: one firmware's release usually has a build for each
+const TRACKER_DEVICE = { Tracker: 'tracker', 'Tracker+': 'trackerplus', 'Tracker Mini': 'trackermini' }
 const TRACKER_AT = { 0x0000: 'Tracker', 0x6002: 'Tracker Mini', 0x6003: 'Tracker+' }
 const POLYEND = [...'Polyend'].map((c) => c.charCodeAt(0))
 
