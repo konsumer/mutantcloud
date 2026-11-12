@@ -444,15 +444,21 @@ function variantOf(file, e) {
   return v.replace(/^[-_ ]+/, '')
 }
 
+// M-VAVE's own packages (the stock listing's): a firmware's release that has one too (a just-in-case copy of the stock
+// firmware, next to its own) doesn't get a row for it: fm1buddy would show stock as that firmware
+const releaseOf = (e) => (pkgs(e.release).length ? e.release : pkgs(e.prerelease).length ? e.prerelease : null)
+
 function catalog(all, synced) {
   const firmwares = []
   let stock = null
   const ids = new Set()
+  const stockSha = new Set(all.filter((e) => e.kind === 'firmware' && e.stock).flatMap((e) => pkgs(releaseOf(e)).map((a) => a.sha256)))
   for (const e of all) {
     if (e.kind !== 'firmware') continue
-    const rel = pkgs(e.release).length ? e.release : pkgs(e.prerelease).length ? e.prerelease : null
+    const rel = releaseOf(e)
     if (!rel) continue
-    const list = pkgs(rel)
+    const list = pkgs(rel).filter((a) => e.stock || !stockSha.has(a.sha256))
+    if (!list.length) continue
     const kinds = [...new Set(e.tags.map((t) => HUB_KIND[t]).filter(Boolean))] // (e.tags starts with the main tag)
     const play = e.links.find((l) => /try|play|emulator|browser/i.test(l.label))?.url
     const editor = e.links.find((l) => /editor/i.test(l.label))?.url
