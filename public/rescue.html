@@ -65,12 +65,14 @@
         <ul>
           <li>Try another cable (a data cable), another USB port, and no hub. Switch it off and on.</li>
           <li>Firmware built on <a href="/fomajam">fomajam</a> has a USB rescue mode: hold <b>OCT-</b> while you switch it on, then come back here.</li>
+          <li>With <a href="https://github.com/jvitkauskas/m-bootloader" target="_blank" rel="noopener">m-bootloader</a> on it, this page works even when no firmware starts: hold <b>PLAY</b> (<b>SEQ PLAY</b> on the SMK-37) while you switch it on, pick <b>MIDI MODE</b> in its menu, then come back here. When the firmware won't start, it opens MIDI mode by itself. Holding <b>REC</b> (<b>SEQ REC</b>) instead starts the boot ROM's download mode (below), which a browser can't reach.</li>
           <li>Some firmwares don't take the update command. Go back to stock once from their own menu or updater, or use the boot ROM (below).</li>
         </ul>
         <h3>The boot ROM: the last resort</h3>
         <p>The chip (JieLi WL82) has a boot loader in its ROM that no firmware can break, so these devices can always be recovered. A browser can't reach it (it shows up as a USB disk, which web pages aren't allowed to talk to), but these can.</p>
-        <p><b>From a computer</b>, if it's already in the boot ROM (it shows up as a USB disk called <code>WL82 UBOOT1.00</code>, often after a firmware that crashes at start-up):</p>
+        <p><b>From a computer</b>, if it's already in the boot ROM (it shows up as a USB disk called <code>WL82 UBOOT1.00</code> or <code>WL80UBOOT1.00</code>, often after a firmware that crashes at start-up, or after holding REC with m-bootloader):</p>
         <ul>
+          <li><a href="https://github.com/jvitkauskas/m-flasher" target="_blank" rel="noopener">M-Flasher</a>: an app for Windows, macOS and Linux. It backs up and restores the whole flash, installs any <code>.fwsc</code>, and installs m-bootloader (or puts the stock one back). FM1 and SMK-37.</li>
           <li><a href="https://github.com/Quixotic7/MvaveFM1Unbricker" target="_blank" rel="noopener">MvaveFM1Unbricker</a>: a Python script that puts official V15 or V16 back on an FM1 over a plain USB cable, with a full backup first. Windows, macOS and Linux.</li>
         </ul>
         <p><b>With a small board</b>, which works even when it never shows up on USB at all: the board sends the chip's boot key as it's switched on, which puts it in the boot ROM, then writes the firmware. These three do the same job, so use whichever you have or can get:</p>

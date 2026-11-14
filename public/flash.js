@@ -2,7 +2,7 @@
 // the package is for that model, then write it with the FM-1's update protocol (vendor/fm1ota.js, from fomajam).
 // Used by the install sheet (app.js) and the rescue page (rescue.js).
 
-import { Updater, sameModel } from './vendor/fm1ota.js'
+import { Updater, sameModel, pack7, unpack7 } from './vendor/fm1ota.js'
 import { productOf, logicalImage } from './vendor/fm1pkg.js'
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])
@@ -38,7 +38,9 @@ const TEXT = {
   lost: 'The USB connection was lost. Replug it and press Install again (it carries on where it stopped).',
   noloader: 'The device in update mode was not found. Replug the USB cable and press Install again.',
   noreturn: 'It did not come back by itself. Switch it off and on.',
-  badreq: 'The device asked for something outside the package.'
+  badreq: 'The device asked for something outside the package.',
+  // (m-bootloader's MIDI mode: it says why on its own screen, and answers again)
+  mboot: "It stopped. The device's screen says why: a package it won't take is turned down before anything is written. It's still in MIDI mode, so press Find my device to try again."
 }
 
 const TIPS = `<ul class="tips">
@@ -46,6 +48,7 @@ const TIPS = `<ul class="tips">
   <li>Switch the device on.</li>
   <li>Close everything else that uses MIDI: M-VAVE's app, editors, DAWs, other tabs.</li>
   <li>Chrome or Edge on a computer (not a phone or iPad).</li>
+  <li>With <a href="https://github.com/jvitkauskas/m-bootloader" target="_blank" rel="noopener">m-bootloader</a>: holding <b>REC</b> (<b>SEQ REC</b> on the SMK-37) as it's switched on starts the chip's download mode, a USB disk that browsers can't reach (it's for <a href="https://github.com/jvitkauskas/m-flasher" target="_blank" rel="noopener">M-Flasher</a>). Instead, hold <b>PLAY</b> (<b>SEQ PLAY</b>) as you switch it on and pick <b>MIDI MODE</b> in its menu.</li>
 </ul>`
 
 // fm1ota only asks ports with the names it knows (FM-1, SMK, Felucca, ...). Firmwares name their own (fomajam's is
@@ -88,16 +91,45 @@ async function midi() {
   return access
 }
 
-// what's plugged in: { text: 'FM-1_015', model: 'FM-1', ota: in update mode (an install was cut off), rescue:
-// fomajam's USB rescue } or null
+// m-bootloader's MIDI mode, and M-Flasher's RAM stage (the same code), answer as an update loader
+// ("ota-SMK-37 Pro_900"); command 0x12 says which (m-bootloader's docs/SPEC.md, 11.6). It only reads, and it's the
+// check that spec says a host makes first. -> { kind: 'bootloader' | 'stage', version, jedec } or null
+const MBOOT_INFO = 0x12
+async function mbootInfo(link) {
+  link.drain()
+  if (!link.send([0xf0, ...pack7([0, 0x59, MBOOT_INFO, 0, 0, 0, 0xff]), 0xf7])) return null
+  const end = Date.now() + 1000
+  while (Date.now() < end) {
+    const p = await link.read(end - Date.now())
+    if (!p) break
+    const u = unpack7(p.slice(1, -1))
+    if (u.length < 7 || u[0] !== 0 || u[1] !== 0x59 || u[2] !== MBOOT_INFO) continue
+    const b = u.slice(6, 6 + (u[3] | (u[4] << 8) | (u[5] << 16)))
+    if (b.length < 29 || String.fromCharCode(...b.slice(0, 5)) !== 'MBOOT') return null
+    let version = ''
+    for (let i = 28; i < b.length && b[i]; i++) version += String.fromCharCode(b[i])
+    return { kind: b[6] === 2 ? 'stage' : 'bootloader', version, jedec: (b[14] | (b[15] << 8) | (b[16] << 16) | (b[17] << 24)) >>> 0 }
+  }
+  return null
+}
+
+// what's plugged in: { text: 'FM-1_015', model: 'FM-1', ota: in update mode (an install was cut off), mboot:
+// m-bootloader's MIDI mode or M-Flasher's stage (mbootInfo), rescue: fomajam's USB rescue } or null
 export async function detect(log) {
   const dev = await new HubUpdater(await midi(), log).find()
   if (!dev) return null
+  const ota = /^ota-/i.test(dev.id.model)
+  const mboot = ota ? await mbootInfo(dev.link) : null
   dev.link.close()
-  return { text: dev.id.text, model: modelOf(dev.id.model), ota: /^ota-/i.test(dev.id.model), rescue: /_000$/.test(dev.id.text), port: dev.name }
+  if (mboot && log) log(`m-bootloader ${mboot.kind} ${mboot.version}, flash 0x${mboot.jedec.toString(16)}`)
+  return { text: dev.id.text, model: modelOf(dev.id.model), ota, mboot, rescue: /_000$/.test(dev.id.text), port: dev.name }
 }
 
-export const describe = (dev) => (dev.ota ? `an ${esc(deviceName(dev.model))} in update mode: an install didn't finish. Installing now finishes it.` : dev.rescue ? `an ${esc(deviceName(dev.model))} in its USB rescue mode.` : `an ${esc(deviceName(dev.model))}, running <span class="mono">${esc(dev.text)}</span>.`)
+// m-bootloader can't tell the SMK-37 Pro, Elite and MKE-P37 apart (it answers as a Pro): any of their builds goes on
+const anyModel = (dev) => !!dev.mboot && isSmk(dev.model)
+const mbootName = (dev) => (anyModel(dev) ? 'SMK-37 (Pro, Elite or MKE-P37)' : deviceName(dev.model))
+
+export const describe = (dev) => (dev.mboot ? (dev.mboot.kind === 'stage' ? `an ${esc(mbootName(dev))} running M-Flasher's stage (<span class="mono">${esc(dev.mboot.version)}</span>).` : `an ${esc(mbootName(dev))} in m-bootloader's MIDI mode (<span class="mono">${esc(dev.mboot.version)}</span>). Installing keeps m-bootloader on it.`) : dev.ota ? `an ${esc(deviceName(dev.model))} in update mode: an install didn't finish. Installing now finishes it.` : dev.rescue ? `an ${esc(deviceName(dev.model))} in its USB rescue mode.` : `an ${esc(deviceName(dev.model))}, running <span class="mono">${esc(dev.text)}</span>.`)
 
 const hex = async (raw) => [...new Uint8Array(await crypto.subtle.digest('SHA-256', raw))].map((b) => b.toString(16).padStart(2, '0')).join('')
 
@@ -117,7 +149,7 @@ async function load(pkg) {
 
 // the device as it is now, the package, and the check that it's for that model (anySmk: or any SMK-37's on an SMK-37)
 export function checkFor(dev, product, { anySmk = false } = {}) {
-  if (anySmk && isSmk(dev.model) && isSmk(product)) return ''
+  if ((anySmk || anyModel(dev)) && isSmk(dev.model) && isSmk(product)) return ''
   if (!sameModel(dev.model, modelOf(product))) return `It's for the ${esc(deviceName(product))}, and this is ${describe(dev)} Nothing will be written.`
   return ''
 }
@@ -177,7 +209,8 @@ export function mountFlasher(el, { pick, verb = 'Install', intro = '' }) {
           // builds for the same model (variants): the first is picked until another is
           ready = { dev, pkg: p.choices[0] }
           const group = `fl-pick-${Math.random().toString(36).slice(2)}`
-          say(`Found ${describe(dev)}<br>${p.note ? p.note + ' ' : ''}${p.ask || `It has ${p.choices.length} builds for it. Pick one:`}<div class="choices">${p.choices.map((c, i) => `<label><input type="radio" name="${group}" value="${i}"${i ? '' : ' checked'} /> <span class="mono">${esc(c.label)}</span></label>`).join('')}</div>Keep it plugged in until it says done.`, 'ok')
+          const ask = p.ask || (anyModel(dev) ? 'Pick the build for the name on its box:' : `It has ${p.choices.length} builds for it. Pick one:`)
+          say(`Found ${describe(dev)}<br>${p.note ? p.note + ' ' : ''}${ask}<div class="choices">${p.choices.map((c, i) => `<label><input type="radio" name="${group}" value="${i}"${i ? '' : ' checked'} /> <span class="mono">${esc(c.label)}</span></label>`).join('')}</div>Keep it plugged in until it says done.`, 'ok')
           for (const r of st.querySelectorAll('input[type=radio]'))
             r.onchange = () => {
               if (!ready) return
@@ -187,7 +220,9 @@ export function mountFlasher(el, { pick, verb = 'Install', intro = '' }) {
         } else {
           ready = { dev, pkg: p.pkg }
           const same = !dev.ota && dev.text === p.pkg.product
-          say(`Found ${describe(dev)}<br>${p.note ? p.note + ' ' : ''}Ready to write <b>${esc(p.pkg.label)}</b>${same ? ' (it already runs this: installing again is fine)' : ''}. Keep it plugged in until it says done.`, 'ok')
+          // (one SMK-37 build, and m-bootloader can't say which SMK-37 this is)
+          const which = anyModel(dev) && !p.pkg.anySmk ? ` It's the ${esc(deviceName(p.pkg.product))} build: check that's the name on its box.` : ''
+          say(`Found ${describe(dev)}<br>${p.note ? p.note + ' ' : ''}Ready to write <b>${esc(p.pkg.label)}</b>${same ? ' (it already runs this: installing again is fine)' : ''}.${which} Keep it plugged in until it says done.`, 'ok')
         }
         if (ready) {
           label()
@@ -224,15 +259,16 @@ export function mountFlasher(el, { pick, verb = 'Install', intro = '' }) {
       const bad = checkFor(dev, product, pkg)
       if (bad) throw new Error(bad.replace(/<[^>]+>/g, ''))
       const up = new HubUpdater(await midi(), log)
-      if (pkg.anySmk) up.as = modelOf(product)
+      if (pkg.anySmk || anyModel(dev)) up.as = modelOf(product)
       const image = logicalImage(raw)
-      const total = 74 + Math.ceil(image.length / 512)
+      // (m-bootloader's MIDI mode has no first step, and reads the package twice: to check it, then to write it)
+      const total = dev.mboot ? 2 * Math.ceil(image.length / 512) : 74 + Math.ceil(image.length / 512)
       const step = (k, a) => {
         if (k === 'loader') staged = true
         log(`${k} ${a ?? ''}`)
         if (TEXT[k]) say(esc(TEXT[k]))
         if (k === 'verify') bar.value = (100 * a) / total
-        if (k === 'write') bar.value = (100 * (74 + a)) / total
+        if (k === 'write') bar.value = Math.min(99, (100 * (dev.mboot ? a : 74 + a)) / total)
       }
       let now = product
       if (dev.ota) {
@@ -258,6 +294,7 @@ export function mountFlasher(el, { pick, verb = 'Install', intro = '' }) {
     } catch (e) {
       // stopped before update mode: turned down by the running firmware (or it already runs this very package)
       if (e.code === 'stopped' && dev && !dev.ota && !staged) e.code = dev.text === want ? 'same' : 'refused'
+      if (e.code === 'stopped' && dev?.mboot) e.code = 'mboot'
       say(`${esc(TEXT[e.code] || '')}${TEXT[e.code] ? esc(e.detail || '') : esc(e.message)}${e.code === 'notfound' ? TIPS : ''}${['stopped', 'lost', 'noloader', 'refused'].includes(e.code) ? ' Or finish it from the <a href="/rescue">rescue page</a>.' : ''}`, 'bad')
       log(String(e?.stack || e))
     }
