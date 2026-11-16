@@ -62,7 +62,7 @@ Each listing has a **main tag** (`primaryTag`): the owner's pick, else the first
 
 ### Try it in the browser
 
-Every firmware with an FM1 or SMK-37 package gets a **▶ Try** button. It opens `/#/try/<id>`, a popup with the [FM-1 emulator](https://github.com/joakimeriksson/fm1-emu) (MIT) embedded, with FM1 and SMK-37 tabs when it has both. It plays the listing's own latest build, through `/dl` (CORS on, checked like an install), never the emulator's copy, which is often an older version.
+Every firmware with an FM1 or SMK-37 package gets a **▶ Try** button. It opens `/#/try/<id>`, a popup with the [FM-1 emulator](https://github.com/joakimeriksson/fm1-emu) (MIT) embedded, with FM1 and SMK-37 tabs when it has both. It plays the listing's own latest build, through `/dl` (CORS on, checked like an install), never the emulator's copy, which is often an older version. Every FM1 / SMK-37 file in its version history gets its own ▶ Try too (`/#/try/<id>/<file>`), so any older version can be played.
 
 The emulator takes any firmware by URL (`?package=<https url>&name=…&embed=1`, from [#158](https://github.com/joakimeriksson/fm1-emu/pull/158)), so the button uses upstream's own site, `joakimeriksson.github.io/fm1-emu/`, and plays whatever package the hub links, not just what the emulator lists.
 

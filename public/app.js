@@ -219,6 +219,8 @@ function emuFor(e) {
   }
   return Object.keys(out).length ? out : null
 }
+const canTry = (e, a) => !!e && e.kind === 'firmware' && e.emulator !== false && isPackage(a) && !a.missing && !a.invalid
+const emuDev = (a) => (deviceName(a.product) === 'FM1' ? 'fm1' : 'smk37')
 const emuUrl = (dev, f, embed) => `${EMU}${dev === 'smk37' ? 'smk37/' : ''}?package=${encodeURIComponent(f.pkg)}&name=${encodeURIComponent(f.name)}${embed ? '&embed=1' : ''}`
 
 // a card's buttons: the maker's website leads when there is one, then how to get it (installer or files),
@@ -620,7 +622,8 @@ function detail(e) {
   wireCopy()
 }
 
-// a version's files; a package for a known device gets an Install button (#/install/<id>/<file>)
+// a version's files; a package for a known device gets an Install button (#/install/<id>/<file>) and a Try
+// button (#/try/<id>/<file>: any version, played from /dl like the latest)
 // a listing's tested chip goes on the FM-1 packages of what it shows now (not older versions: those weren't tested)
 // a Polyend Tracker's .ptf: the Tracker's updater only takes one named for its model, so a misnamed file says so
 const PTF_PREFIX = { Tracker: 'PolyendTrac', 'Tracker+': 'TrackerPlus', 'Tracker Mini': 'TrackerMini' }
@@ -632,7 +635,7 @@ const isPtf = (a) => /\.ptf$/i.test(a.name) && !!PTF_PREFIX[a.product]
 const PTF_HOWTO = '<p class="note muted">To install a <code>.ptf</code> on your Tracker: copy the one for your model into the <code>Firmware</code> folder on its microSD card, then on the Tracker go to <b>Config › Firmware › Firmware update</b> and pick it. If it won\'t start, put the file there on its own and press the recessed reset button to have the bootloader install it.</p>'
 
 const tested = (e, a) => !!e?.chip && /^FM-1_/.test(a.product || '') && [...(e.release?.assets || []), ...(e.prerelease?.assets || [])].includes(a)
-const fileList = (f, e) => `<ul class="files">${f.map((a) => `<li><a href="${safe(a.url)}">${esc(a.name)}</a><span class="fmeta"><span class="mono">${a.product ? `${esc(a.product)} · ` : ''}${fmtSize(a.size)}</span>${ptfNote(a)}${tested(e, a) ? `<span class="chipnote${e.chip === 'old' ? ' old' : ''}" title="Tried on an FM-1 with the newer flash chip (0xB36014)">${TESTED_NOTE[e.chip]}</span>` : CHIP_NOTE[a.chip] ? `<span class="chipnote${a.chip === 'old' ? ' old' : ''}" title="Its flash chip support, read from the package">${CHIP_NOTE[a.chip]}</span>` : ''}${e && isPackage(a) && !a.missing && !a.invalid ? `<a class="btn small" href="#/install/${esc(e.id)}/${esc(encodeURIComponent(a.name))}" title="Write it to your ${esc(deviceName(a.product))} over USB, from this page">Install</a>` : ''}</span></li>`).join('')}</ul>`
+const fileList = (f, e) => `<ul class="files">${f.map((a) => `<li><a href="${safe(a.url)}">${esc(a.name)}</a><span class="fmeta"><span class="mono">${a.product ? `${esc(a.product)} · ` : ''}${fmtSize(a.size)}</span>${ptfNote(a)}${tested(e, a) ? `<span class="chipnote${e.chip === 'old' ? ' old' : ''}" title="Tried on an FM-1 with the newer flash chip (0xB36014)">${TESTED_NOTE[e.chip]}</span>` : CHIP_NOTE[a.chip] ? `<span class="chipnote${a.chip === 'old' ? ' old' : ''}" title="Its flash chip support, read from the package">${CHIP_NOTE[a.chip]}</span>` : ''}${e && isPackage(a) && !a.missing && !a.invalid ? `<a class="btn small" href="#/install/${esc(e.id)}/${esc(encodeURIComponent(a.name))}" title="Write it to your ${esc(deviceName(a.product))} over USB, from this page">Install</a>` : ''}${canTry(e, a) ? `<a class="btn small" href="#/try/${esc(e.id)}/${esc(encodeURIComponent(a.name))}" title="Play this file in your browser, in the FM-1 emulator">▶ Try</a>` : ''}</span></li>`).join('')}</ul>`
 
 // installing the latest from the card: the device is asked what it is, and that model's file is picked from the
 // latest release (its prerelease when only that has one). Several (old and new builds side by side: the one named
@@ -842,16 +845,29 @@ function makeSheet() {
   }
 }
 
-// the emulator in a popup: FM1 or SMK-37 if it has both
-function trySheet(e, dev) {
-  const emu = e && emuFor(e)
-  if (!emu) return detail(e)
-  const devs = Object.keys(emu)
-  dev = emu[dev] ? dev : devs[0]
+// the emulator in a popup: the latest (FM1 or SMK-37 if it has both), or one file of any version
+async function trySheet(e, arg) {
+  if (!e) return detail(e)
+  let emu, dev, version
+  if (arg && !['fm1', 'smk37'].includes(arg)) {
+    // one file: the latest's or a pre-release's, else an older version's
+    let v = [e.release, e.prerelease].find((r) => r?.assets?.some((x) => x.name === arg))
+    if (!v) v = (await api(`/api/entries/${e.id}/releases`).catch(() => [])).find((r) => r.assets.some((x) => x.name === arg))
+    const a = v?.assets.find((x) => x.name === arg)
+    if (!a || !canTry(e, a)) return detail(e)
+    dev = emuDev(a)
+    version = v.version
+    emu = { [dev]: { pkg: `${location.origin}/dl/${e.id}/${encodeURIComponent(a.name)}`, name: `${e.name} ${v.version || ''}`.trim() } }
+  } else {
+    emu = emuFor(e)
+    if (!emu) return detail(e)
+    dev = emu[arg] ? arg : Object.keys(emu)[0]
+  }
+  const devs = version ? [] : Object.keys(emu)
   const f = emu[dev]
   const own = tryIt(e)
   open(
-    `<h2 id="dlg-title">Try ${esc(e.name)}</h2>
+    `<h2 id="dlg-title">Try ${esc(e.name)}${version ? ` <span class="mono">${esc(version)}</span>` : ''}</h2>
     <p class="by">The real firmware, running in your browser in the <a href="https://github.com/joakimeriksson/fm1-emu" target="_blank" rel="noopener">FM-1 emulator</a>. Press Start, then play it with your mouse, computer keyboard or a MIDI keyboard.</p>
     ${devs.length > 1 ? `<div class="seg emu-devs">${devs.map((d) => `<a class="${d === dev ? 'on' : ''}" href="#/try/${esc(e.id)}/${d}">${esc(DATA.devices[d] || d)}</a>`).join('')}</div>` : ''}
     <div class="emuframe${dev === 'smk37' ? ' smk' : ''}"><iframe src="${esc(emuUrl(dev, f, true))}" title="${esc(e.name)} in the FM-1 emulator" allow="autoplay; midi; fullscreen" loading="eager"></iframe></div>
@@ -1272,7 +1288,7 @@ function route() {
   else if (h === '#/mine') mine()
   else if (h === '#/admin') activitySheet()
   else if (h === '#/make') makeSheet()
-  else if ((m = h.match(/^#\/try\/([a-z0-9-]+)(?:\/(fm1|smk37))?/))) trySheet(find(m[1]), m[2])
+  else if ((m = h.match(/^#\/try\/([a-z0-9-]+)(?:\/(.+))?$/))) trySheet(find(m[1]), m[2] && decodeURIComponent(m[2]))
   else if (listingPath() && find(listingPath())) detail(find(listingPath()))
   else if (dlg.open) dlg.close()
 }
