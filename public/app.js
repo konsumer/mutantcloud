@@ -202,9 +202,9 @@ const tryIt = (e) => e.links.find((l) => /try|play|emulator|browser/i.test(l.lab
 
 // --- the web emulator (joakimeriksson/fm1-emu, MIT) ------------------------
 // Every firmware with a package plays its own latest build (through /dl: CORS on, checked like an install),
-// never the emulator's copy (often an older version). The emulator takes a package by URL (?package=, fm1-emu#158)
-// in konsumer's fork, which merges upstream daily; ?embed=1 shows just the device.
-const EMU = 'https://konsumer.js.org/fm1-emu/'
+// never the emulator's copy (often an older version). The emulator takes a package by URL (?package=https…,
+// &name=); ?embed=1 shows just the device.
+const EMU = 'https://joakimeriksson.github.io/fm1-emu/'
 const EMUMODEL = { fm1: 'FM-1', smk37: 'SMK-37 Pro' }
 
 // what the emulator can play of this listing: { fm1: { pkg, name }, smk37: … } (null: nothing, or the owner turned it off)
