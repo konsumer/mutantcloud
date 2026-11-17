@@ -24,6 +24,7 @@ export function wrangler(args, { quiet = false, input, env = {}, allowFail = fal
     cwd: ROOT,
     input,
     encoding: 'utf8',
+    maxBuffer: 256 * 1024 * 1024, // whole-table reads are past the 1MB default
     env: { ...process.env, ...accountEnv(), ...env },
     stdio: quiet || input !== undefined ? ['pipe', 'pipe', 'pipe'] : 'inherit'
   })
