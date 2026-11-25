@@ -206,8 +206,23 @@ main {
   padding: 28px 0 18px;
 }
 
+/* (the list's page: no headline, straight to the list) */
+.hero.slim {
+  padding: 12px 0 6px;
+}
+
+/* (there for screen readers and search engines, not shown) */
+.vh {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .hero h1 {
-  margin: 0;
+  margin: 0 0 10px;
   max-width: 820px;
   font-size: clamp(28px, 5vw, 48px);
   line-height: 1.05;
@@ -229,8 +244,14 @@ main {
   background: color-mix(in srgb, var(--c3) 26%, transparent);
 }
 
+@media (max-width: 560px) {
+  .hl {
+    white-space: normal;
+  }
+}
+
 .sub {
-  margin: 10px 0 0;
+  margin: 0;
   color: var(--muted);
 }
 
@@ -1279,9 +1300,6 @@ form.edit {
   }
   .logo {
     font-size: 19px;
-  }
-  .hl {
-    white-space: normal;
   }
   .seg button {
     flex: 1;

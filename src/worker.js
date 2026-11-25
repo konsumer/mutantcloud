@@ -1142,6 +1142,7 @@ async function activity(env) {
 const WATCH_BATCH = 20 // repos per run
 const WATCH_BUDGET = 45 // outside requests per run (the free plan allows 50)
 const WATCH_UA = { 'user-agent': 'mutant.cloud release watcher (+https://mutant.cloud)' }
+const BARE_DAYS = 3 // days a bare tag is looked at again, in case a release is made from it
 const normTag = (t) =>
   String(t)
     .replace(/^v(?=\d)/i, '')
@@ -1163,7 +1164,10 @@ async function readRelease(repo, { tag, date }) {
   const t = encodeURIComponent(tag)
   const [page, files] = await Promise.all([fetch(`${base}/tag/${t}`, { headers: WATCH_UA }), fetch(`${base}/expanded_assets/${t}`, { headers: WATCH_UA })])
   if (!page.ok || !files.ok) return null
-  const prerelease = />\s*Pre-release\s*</.test(await page.text())
+  const html = await page.text()
+  // a bare tag (no release made from it): the releases feed lists those too, but there's nothing to install
+  if (/tagged this/.test(html) && !/released this/.test(html)) return { version: tag, bare: true }
+  const prerelease = />\s*Pre-release\s*</.test(html)
   const seen = new Set()
   const assets = []
   for (const m of (await files.text()).matchAll(/href="(\/[^"]+\/releases\/download\/[^"]+)"/g)) {
@@ -1218,11 +1222,18 @@ async function watchReleases(env) {
       continue
     }
     const etag = res.headers.get('etag')
+    // bare tags it has seen: { tag: day first seen }. One is looked at again for a few days (a maker's CI often
+    // pushes the tag first and makes the release from it after), then left alone
+    const bare = auto.bare || {}
+    const today = now.slice(0, 10)
+    const settled = (t) => bare[t] && daysSince(bare[t]) > BARE_DAYS
     const fresh = parseAtom(await res.text())
-      .filter((f) => !known.get(row.id).has(normTag(f.tag)))
+      .filter((f) => !known.get(row.id).has(normTag(f.tag)) && !settled(normTag(f.tag)))
       .slice(0, 3)
     const got = []
     let finished = true
+    // (something to look at again: the feed's ETag isn't kept, so the next run reads it in full)
+    let again = false
     for (const f of fresh) {
       if (budget < 2) {
         finished = false
@@ -1231,6 +1242,16 @@ async function watchReleases(env) {
       budget -= 2
       const v = await readRelease(repo, f)
       if (!v) continue
+      if (v.bare) {
+        bare[normTag(f.tag)] ||= today
+        again ||= !settled(normTag(f.tag))
+        continue
+      }
+      // a release made in the last day with no files yet: CI is likely still uploading them, so it waits
+      if (!v.assets.length && f.date && daysSince(f.date) < 1) {
+        again = true
+        continue
+      }
       const pkgs = v.assets.filter((a) => PKG_FILE.test(a.name)).length
       if (pkgs > budget) {
         finished = false
@@ -1252,8 +1273,15 @@ async function watchReleases(env) {
         added.push(`${repo} ${v.version}`)
       }
     }
+    // (the newest 50 bare tags are kept)
+    if (Object.keys(bare).length)
+      auto.bare = Object.fromEntries(
+        Object.entries(bare)
+          .sort((a, b) => b[1].localeCompare(a[1]))
+          .slice(0, 50)
+      )
     // only marked as checked once all its new releases are in (otherwise it's first in line next run)
-    if (finished) updates.push(env.DB.prepare('UPDATE entries SET watched = ?, watch_etag = ?, auto = ? WHERE id = ?').bind(now, etag, JSON.stringify(auto), row.id))
+    if (finished) updates.push(env.DB.prepare('UPDATE entries SET watched = ?, watch_etag = ?, auto = ? WHERE id = ?').bind(now, again ? null : etag, JSON.stringify(auto), row.id))
     else if (got.length) updates.push(env.DB.prepare('UPDATE entries SET auto = ? WHERE id = ?').bind(JSON.stringify(auto), row.id))
   }
   if (updates.length) await env.DB.batch(updates)

@@ -297,8 +297,10 @@ export function effective(row) {
     const installable = (r) => (r?.assets || []).some((a) => a.sha256)
     const later = (a, b) => (a?.date || '') >= (b?.date || '')
     if (release && (!e.release || (installable(release) && !installable(e.release)) || (installable(release) === installable(e.release) && later(release, e.release)))) e.release = release
-    if (prerelease && (!e.release || (prerelease.date || '') > (e.release.date || ''))) e.prerelease = prerelease
-    else if (e.prerelease && e.release && (e.prerelease.date || '') <= (e.release.date || '')) delete e.prerelease
+    // a pre-release shows when it's newer, or when it has files to install and the release has none
+    const wanted = (p) => !e.release || (p.date || '') > (e.release.date || '') || (installable(p) && !installable(e.release))
+    if (prerelease && wanted(prerelease)) e.prerelease = prerelease
+    else if (e.prerelease && e.release && !wanted(e.prerelease)) delete e.prerelease
     e.versions = count
     // a newer release than the one shown, which isn't installable (its file failed its check): say so
     const { newest } = row.latest
