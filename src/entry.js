@@ -1,5 +1,7 @@
 // Shared data model for mutant.cloud entries (used by the worker and scripts/collect.js)
 
+import { deviceOf } from './pkg.js'
+
 export const DEVICES = {
   fm1: 'FM1',
   smk37: 'SMK-37',
@@ -102,10 +104,27 @@ export function parseDeviceId(s) {
   return model ? `${model}_${m[2]}` : null
 }
 
+// a version's installable files: checked, still there, and a package (.fwsc / .ptf) for a known device.
+// public/app.js has the same; keep them in step.
+const packages = (r) => (r?.assets || []).filter((a) => /^https?:/.test(a.url) && !a.missing && !a.invalid && /\.(fwsc|ptf)$/i.test(a.name || '') && !!deviceOf(a.product))
+// has an installable file for this device ('all' or none: for any), in its release or pre-release
+export const hasFile = (e, dev) => [...packages(e.release), ...packages(e.prerelease)].some((a) => !dev || dev === 'all' || deviceOf(a.product) === dev)
+// the flash chip a listing's FM-1 packages know: 'new', 'any' (doesn't check) or 'old'; a tested chip, set by hand, wins
+export function chipOf(e) {
+  if (e.chip) return e.chip
+  const r = packages(e.release).length ? e.release : e.prerelease
+  const seen = packages(r).map((a) => a.chip)
+  return ['new', 'any', 'old'].find((c) => seen.includes(c)) || null
+}
+
 // the list filters, shared by the site's links and the JSON endpoints:
-//   device, kind (firmware | tool | all), tag, author, base, deviceId (exact: "FM-1_961"), q (all words must match)
-export const FILTERS = ['device', 'kind', 'tag', 'author', 'base', 'deviceId', 'q']
+//   device, kind (firmware | tool | all), tag, author, base, deviceId (exact: "FM-1_961"), q (all words must match),
+//   chip=new (saves on newer FM-1s: 'new' or 'any'), file=yes (firmware with an installable file for the device;
+//   tools aren't filtered by it)
+export const FILTERS = ['device', 'kind', 'tag', 'author', 'base', 'deviceId', 'chip', 'file', 'q']
 export function matches(e, f) {
+  if (f.file === 'yes' && e.kind === 'firmware' && !hasFile(e, f.device)) return false
+  if (f.chip && !['new', 'any'].includes(chipOf(e))) return false
   if (f.device && f.device !== 'all' && !e.devices.includes(f.device)) return false
   if (f.kind && f.kind !== 'all' && e.kind !== f.kind) return false
   if (f.tag && !e.tags.includes(f.tag)) return false

@@ -1,6 +1,6 @@
 // mutant.cloud front end: no build step, no framework
 
-import { mountFlasher, isPackage, isBusy, checkFor, deviceName, modelOf, isSmk } from './flash.js'
+import { mountFlasher, isPackage, isBusy, checkFor, deviceName } from './flash.js'
 
 const $ = (s, el = document) => el.querySelector(s)
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])
@@ -179,10 +179,13 @@ function files(e) {
 
 // installable packages in a version (release or prerelease)
 const packages = (r) => (r?.assets || []).filter((a) => /^https?:/.test(a.url) && !a.missing && !a.invalid && isPackage(a))
-// a package's device key ('fm1', 'smk37'), as in DATA.devices
-const pkgDevice = (a) => (modelOf(a.product) === 'FM-1' ? 'fm1' : isSmk(a.product) ? 'smk37' : '')
-// has an installable package for this device ('all': for any), in its release or pre-release
-const hasFile = (e, dev) => [...packages(e.release), ...packages(e.prerelease)].some((a) => dev === 'all' || pkgDevice(a) === dev)
+// a file's device key, as in DATA.devices (same as src/pkg.js deviceOf)
+const TRACKER_DEVICE = { Tracker: 'tracker', 'Tracker+': 'trackerplus', 'Tracker Mini': 'trackermini' }
+const deviceOf = (p) => (/^FM-1_/i.test(p || '') ? 'fm1' : /^(SMK-37|MKE-P37)/i.test(p || '') ? 'smk37' : TRACKER_DEVICE[p] || null)
+// has an installable file (.fwsc / .ptf) for this device ('all': for any), in its release or pre-release
+// (same as src/entry.js hasFile, which the JSON endpoints and the feed filter with)
+const installable = (r) => (r?.assets || []).filter((a) => /^https?:/.test(a.url) && !a.missing && !a.invalid && /\.(fwsc|ptf)$/i.test(a.name || '') && !!deviceOf(a.product))
+const hasFile = (e, dev) => [...installable(e.release), ...installable(e.prerelease)].some((a) => dev === 'all' || deviceOf(a.product) === dev)
 
 // the card's Install: the maker's own installer when they link one, else ours (it asks the device, then picks)
 function installIt(e) {
@@ -421,10 +424,11 @@ function render() {
   feedLink()
 }
 
-// the RSS link follows the list's filters (the feed itself shows every device unless one is asked for)
+// the RSS link follows the list's filters (the feed itself shows every device, with or without files, unless asked)
 function feedLink() {
   const p = new URLSearchParams()
-  for (const k of ['q', 'kind', 'device', 'tag', 'author', 'base', 'deviceId']) if (state[k] && state[k] !== 'all' && !(k === 'kind' && state[k] === 'firmware')) p.set(k, state[k])
+  for (const k of ['q', 'kind', 'device', 'tag', 'author', 'base', 'deviceId', 'chip']) if (state[k] && state[k] !== 'all' && !(k === 'kind' && state[k] === 'firmware')) p.set(k, state[k])
+  if (state.file === 'yes' && state.kind !== 'tool') p.set('file', 'yes')
   if (state.kind === 'all') p.set('kind', 'all')
   const href = '/feed.xml' + (p.toString() ? '?' + p : '')
   const a = $('#feed')

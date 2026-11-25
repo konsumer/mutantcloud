@@ -15,7 +15,7 @@ Every view of the list is a link, and filters combine:
 - `/?device=smk37`: everything for the SMK-37
 - `/?base=felucca&tag=drums`: drum firmware built on Felucca
 - `/?kind=tool`, `/?kind=all`, `&q=search words`, `&sort=added`
-- The site opens on FM1 firmware. `?device=all` shows every device.
+- The site opens on FM1 firmware that has an FM1 file to install (`.fwsc`, or `.ptf` for the Trackers). `?device=all` shows every device, and `?file=any` firmware without a file for that device too (a listing labelled SMK-37 with only an FM1 package isn't shown under `?device=smk37` otherwise).
 - `/fomajam`: one listing's own page. Link previews (Reddit, Discord, Mastodon, X…) show its name, maker, description and picture (the owner's, else the maker's, else its screenshot), so makers can share it as theirs. **Copy link** on a listing gives this address; `/#/p/fomajam` still works too.
 - IDs are only lowercase letters, digits and hyphens, and can't be any of the site's own paths (`RESERVED` in `src/entry.js`, enforced by the server whenever it picks an ID, and when it serves `/<id>`).
 
@@ -26,6 +26,7 @@ The JSON endpoints take the same filters, so the same query works for apps:
 - `/firmware.json?author=konsumer&device=fm1`
 - `/catalog.json?device=smk37`: only SMK-37 packages. The catalog filters per package, so a firmware's FM1 build isn't included.
 - `/catalog.json?author=konsumer&device=fm1`
+- `/firmware.json?device=smk37&file=yes`: only SMK-37 firmware with an SMK-37 file, as on the site. The endpoints show firmware with or without files unless `file=yes` is asked for; `chip=new` works there too.
 - `/feed.xml?device=smk37`: RSS of new SMK-37 firmware: a timeline with one item per version (pre-releases too) and per new listing (titled `New:`), with the version's first verified `.fwsc` as the enclosure. It defaults to `kind=firmware`; pass `kind=tool` or `kind=all` for tools. The site's **RSS** link follows its filters, and each listing's page advertises a feed of its maker's work.
 
 One difference: the site opens on FM1 firmware, but the JSON returns every `kind` and every device unless you pass `kind=` or `device=`. Filtered responses echo the `filter` they used and have their own ETag. The matching rules live in `matches()` in `src/entry.js`, which both the worker and the site's links follow.
@@ -136,26 +137,26 @@ Not on GitHub? Sign in and add versions by hand on the site (open your entry, th
 
 ## API
 
-| Method | Path                                 | Who                 | What                                                                                                                |
-| ------ | ------------------------------------ | ------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/firmware.json`                     | anyone              | everything (cached 5 min, ETag); filters: `device`, `kind`, `tag`, `author`, `base`, `q`                            |
-| GET    | `/catalog.json`                      | anyone              | The Firmware Hub format: `firmwares[]` (`pkg` is a direct URL) + `stock`; same filters                              |
-| GET    | `/feed.xml`                          | anyone              | RSS 2.0 timeline of new listings and versions (50 newest, ETag); same filters, `kind` defaults to `firmware`        |
-| GET    | `/sitemap.xml`                       | anyone              | every listing's own page (`/<id>`), for search engines; `/robots.txt` points at it                                  |
-| GET    | `/api/entries/:id`                   | anyone              | one entry plus `history` (all versions)                                                                             |
-| GET    | `/dl/:id/:file`                      | anyone              | a package one of the listing's versions names, with CORS on, for browser apps (GitHub's downloads have no CORS)     |
-| GET    | `/api/entries/:id/releases`          | anyone              | version history                                                                                                     |
-| GET    | `/api/ids`                           | anyone              | every device ID in use and which listings use it; `?check=FM-1_745` says whether one is free and suggests free ones |
-| GET    | `/api/me`                            | session             | you, plus entries you can manage                                                                                    |
-| POST   | `/api/entries`                       | session             | add an entry; needs `"confirm": true`, and push access if it has a `repo`                                           |
-| PATCH  | `/api/entries/:id`                   | manager             | edit (only the fields you send); `{"hidden": true}` hides it; `repo` and `{"locked": true}` are admin-only          |
-| DELETE | `/api/entries/:id`                   | manager             | delete (user-added) or hide (collected)                                                                             |
-| POST   | `/api/entries/:id/refresh`           | manager             | re-read the repo from GitHub now                                                                                    |
-| POST   | `/api/entries/:id/releases`          | manager             | add a version `{version, date, url, assets: [{name, url}], prerelease}`                                             |
-| DELETE | `/api/entries/:id/releases/:version` | manager             | remove a version                                                                                                    |
-| GET    | `/api/entries/:id/history`           | manager             | audit log                                                                                                           |
-| POST   | `/api/publish`                       | GitHub Actions OIDC | refresh from a release (see above)                                                                                  |
-| POST   | `/api/admin/watch`                   | admin               | run the release watcher now (it runs by itself every 10 minutes)                                                    |
+| Method | Path                                 | Who                 | What                                                                                                                 |
+| ------ | ------------------------------------ | ------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/firmware.json`                     | anyone              | everything (cached 5 min, ETag); filters: `device`, `kind`, `tag`, `author`, `base`, `deviceId`, `chip`, `file`, `q` |
+| GET    | `/catalog.json`                      | anyone              | The Firmware Hub format: `firmwares[]` (`pkg` is a direct URL) + `stock`; same filters                               |
+| GET    | `/feed.xml`                          | anyone              | RSS 2.0 timeline of new listings and versions (50 newest, ETag); same filters, `kind` defaults to `firmware`         |
+| GET    | `/sitemap.xml`                       | anyone              | every listing's own page (`/<id>`), for search engines; `/robots.txt` points at it                                   |
+| GET    | `/api/entries/:id`                   | anyone              | one entry plus `history` (all versions)                                                                              |
+| GET    | `/dl/:id/:file`                      | anyone              | a package one of the listing's versions names, with CORS on, for browser apps (GitHub's downloads have no CORS)      |
+| GET    | `/api/entries/:id/releases`          | anyone              | version history                                                                                                      |
+| GET    | `/api/ids`                           | anyone              | every device ID in use and which listings use it; `?check=FM-1_745` says whether one is free and suggests free ones  |
+| GET    | `/api/me`                            | session             | you, plus entries you can manage                                                                                     |
+| POST   | `/api/entries`                       | session             | add an entry; needs `"confirm": true`, and push access if it has a `repo`                                            |
+| PATCH  | `/api/entries/:id`                   | manager             | edit (only the fields you send); `{"hidden": true}` hides it; `repo` and `{"locked": true}` are admin-only           |
+| DELETE | `/api/entries/:id`                   | manager             | delete (user-added) or hide (collected)                                                                              |
+| POST   | `/api/entries/:id/refresh`           | manager             | re-read the repo from GitHub now                                                                                     |
+| POST   | `/api/entries/:id/releases`          | manager             | add a version `{version, date, url, assets: [{name, url}], prerelease}`                                              |
+| DELETE | `/api/entries/:id/releases/:version` | manager             | remove a version                                                                                                     |
+| GET    | `/api/entries/:id/history`           | manager             | audit log                                                                                                            |
+| POST   | `/api/publish`                       | GitHub Actions OIDC | refresh from a release (see above)                                                                                   |
+| POST   | `/api/admin/watch`                   | admin               | run the release watcher now (it runs by itself every 10 minutes)                                                     |
 
 Writes from browsers must come from the same origin.
 

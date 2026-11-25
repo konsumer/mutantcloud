@@ -380,6 +380,9 @@ async function feed(request, env, ctx, url) {
   const sp = new URLSearchParams(list.filter)
   if (!sp.has('device')) sp.set('device', 'all')
   if (sp.get('kind') === 'firmware') sp.delete('kind')
+  // (the site only shows firmware with a file unless ?file=any)
+  if (sp.get('file') === 'yes') sp.delete('file')
+  else if (sp.get('kind') !== 'tool') sp.set('file', 'any')
   const site = `${url.origin}/?${sp}`
 
   const item = ({ e, rel, date, first }) => {
