@@ -1,6 +1,6 @@
 // mutant.cloud front end: no build step, no framework
 
-import { mountFlasher, isPackage, isBusy, checkFor, deviceName } from './flash.js'
+import { mountFlasher, isPackage, isBusy, checkFor, deviceName, modelOf, isSmk } from './flash.js'
 
 const $ = (s, el = document) => el.querySelector(s)
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])
@@ -19,8 +19,9 @@ let ME = { user: null, manages: [] }
 
 // the list's filters live in the URL, so any combination is a link:
 //   ?author=konsumer&device=fm1   ?device=smk37   ?base=felucca&tag=drums   ?kind=tool   ?chip=new (saves on newer FM-1s)
-// the site opens on FM1 firmware; ?device=all shows every device
-const DEFAULTS = { q: '', kind: 'firmware', device: 'fm1', tag: '', author: '', base: '', deviceId: '', chip: '', sort: 'updated' }
+// the site opens on FM1 firmware that has an FM1 package to install; ?device=all shows every device, ?file=any
+// firmware without a package too
+const DEFAULTS = { q: '', kind: 'firmware', device: 'fm1', tag: '', author: '', base: '', deviceId: '', chip: '', file: 'yes', sort: 'updated' }
 const state = { ...DEFAULTS }
 function readUrl() {
   const p = new URLSearchParams(location.search)
@@ -178,6 +179,10 @@ function files(e) {
 
 // installable packages in a version (release or prerelease)
 const packages = (r) => (r?.assets || []).filter((a) => /^https?:/.test(a.url) && !a.missing && !a.invalid && isPackage(a))
+// a package's device key ('fm1', 'smk37'), as in DATA.devices
+const pkgDevice = (a) => (modelOf(a.product) === 'FM-1' ? 'fm1' : isSmk(a.product) ? 'smk37' : '')
+// has an installable package for this device ('all': for any), in its release or pre-release
+const hasFile = (e, dev) => [...packages(e.release), ...packages(e.prerelease)].some((a) => dev === 'all' || pkgDevice(a) === dev)
 
 // the card's Install: the maker's own installer when they link one, else ours (it asks the device, then picks)
 function installIt(e) {
@@ -259,6 +264,7 @@ function filtered() {
     if (state.base && e.base !== state.base) return false
     if (state.deviceId && !deviceIds(e).includes(state.deviceId)) return false
     if (state.chip && !savesOnNew(e)) return false
+    if (state.file === 'yes' && e.kind === 'firmware' && !hasFile(e, state.device)) return false
     if (!words.length) return true
     const hay = [e.name, e.author, e.description, e.repo, e.base, e.base && baseName(e.base), ...e.tags, ...deviceIds(e)].join(' ').toLowerCase()
     return words.every((w) => hay.includes(w))
@@ -433,8 +439,8 @@ function summary(list) {
   const kind = { firmware: n === 1 ? 'firmware' : 'firmwares', tool: n === 1 ? 'tool' : 'tools', all: 'firmwares & tools' }[state.kind]
   const authorName = state.author ? DATA.entries.find((e) => authorKey(e) === state.author)?.author || state.author : ''
   const x = (patch, label) => `<a class="chip on" data-f href="${esc(filterUrl(patch))}" title="Remove">${label} <span aria-hidden="true">×</span></a>`
-  const parts = [`<b>${n}</b>`, state.tag ? x({ tag: '' }, esc(state.tag)) : '', state.device !== 'all' ? x({ device: 'all' }, esc(DATA.devices[state.device] || state.device)) : '', esc(kind), state.author ? `by ${x({ author: '' }, esc(authorName))}` : '', state.base ? `built on ${x({ base: '' }, esc(baseName(state.base)))}` : '', state.deviceId ? `with device ID ${x({ deviceId: '' }, esc(state.deviceId))}` : '', state.chip ? `that ${x({ chip: '' }, 'save on newer FM-1s')}` : '', state.q ? `matching ${x({ q: '' }, `“${esc(state.q)}”`)}` : ''].filter(Boolean)
-  const filteredView = ['tag', 'device', 'author', 'base', 'deviceId', 'chip', 'q', 'kind'].some((k) => state[k] !== DEFAULTS[k])
+  const parts = [`<b>${n}</b>`, state.tag ? x({ tag: '' }, esc(state.tag)) : '', state.device !== 'all' ? x({ device: 'all' }, esc(DATA.devices[state.device] || state.device)) : '', esc(kind), state.author ? `by ${x({ author: '' }, esc(authorName))}` : '', state.base ? `built on ${x({ base: '' }, esc(baseName(state.base)))}` : '', state.deviceId ? `with device ID ${x({ deviceId: '' }, esc(state.deviceId))}` : '', state.chip ? `that ${x({ chip: '' }, 'save on newer FM-1s')}` : '', state.file === 'yes' && state.kind !== 'tool' ? `with ${x({ file: 'any' }, state.device === 'all' ? 'a firmware file' : `${esc(DATA.devices[state.device] || state.device)} firmware file`)}` : '', state.q ? `matching ${x({ q: '' }, `“${esc(state.q)}”`)}` : ''].filter(Boolean)
+  const filteredView = ['tag', 'device', 'author', 'base', 'deviceId', 'chip', 'file', 'q', 'kind'].some((k) => state[k] !== DEFAULTS[k])
   $('#count').innerHTML = parts.join(' ') + (filteredView ? ` <span class="filter-actions"><button type="button" class="btn small" id="copylink">Copy link</button><a class="btn small ghost" data-f href="${esc(query({ ...DEFAULTS, sort: state.sort }))}">Clear</a></span>` : '')
   const title = $('#count')
     .textContent.replace(/\s*×\s*/g, ' ')
@@ -501,7 +507,10 @@ function controls() {
   seg($('#device'), [['all', 'Any device'], ...Object.entries(DATA.devices)], 'device')
   // (firmware for the FM-1: the newer flash chip filter comes first)
   const chipBox = state.kind !== 'tool' && ['fm1', 'all'].includes(state.device) ? `<button type="button" class="chip flash" data-c aria-pressed="${!!state.chip}" title="Firmware that keeps its saves on FM-1s with the newer flash chip (0xB36014), read from each package">Saves on newer FM-1s</button>` : ''
+  // (firmware with a package for the chosen device, so it can be installed from here or with fm1buddy)
+  const fileBox = state.kind !== 'tool' ? `<button type="button" class="chip flash" data-file aria-pressed="${state.file === 'yes'}" title="Only firmware with an installable file (.fwsc) for ${state.device === 'all' ? 'its device' : `the ${esc(DATA.devices[state.device] || state.device)}`}">Has firmware file</button>` : ''
   $('#tags').innerHTML =
+    fileBox +
     chipBox +
     barTags()
       .map((t) => `<button type="button" class="chip" data-t="${esc(t)}" style="--h:${hue(t)}" aria-pressed="${state.tag === t}">${esc(t)}</button>`)
@@ -509,7 +518,8 @@ function controls() {
   $('#tags').onclick = (ev) => {
     const b = ev.target.closest('button')
     if (!b) return
-    if (b.dataset.c !== undefined) state.chip = state.chip ? '' : 'new'
+    if (b.dataset.file !== undefined) state.file = state.file === 'yes' ? 'any' : 'yes'
+    else if (b.dataset.c !== undefined) state.chip = state.chip ? '' : 'new'
     else state.tag = state.tag === b.dataset.t ? '' : b.dataset.t
     controls()
     render()
