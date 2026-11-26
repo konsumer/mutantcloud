@@ -83,7 +83,7 @@ async function route(request, env, ctx, url) {
   // a listing's own link (mutant.cloud/<id>): the site, with that listing's name, description and picture in its
   // preview tags. Anything else falls through to the static files (and the site itself).
   const share = pathname.match(/^\/([a-z0-9-]+)\/?$/)
-  if (share && !RESERVED.has(share[1]) && (method === 'GET' || method === 'HEAD')) return listingPage(request, env, url, share[1])
+  if (share && !RESERVED.has(share[1]) && (method === 'GET' || method === 'HEAD')) return listingPage(request, env, ctx, url, share[1])
 
   if (!pathname.startsWith('/api/')) return null
   // /api/publish is called from GitHub Actions (OIDC token, no cookies), everything else is same-site only
@@ -1501,11 +1501,15 @@ async function verifyFiles(env) {
 // /<id> is the normal page (the site opens that listing), but link previews (Reddit, Discord, Mastodon, X...)
 // show the listing: its name, maker, description and picture, so makers can share "their" page.
 
-async function listingPage(request, env, url, id) {
-  const page = await env.ASSETS.fetch(new Request(`${url.origin}/`))
-  const row = await env.DB.prepare('SELECT * FROM entries WHERE id = ?').bind(id).first()
-  if (!row || row.hidden) return page // (the site says it's not found)
-  const e = effective((await withShots(env, attachLatest([row], [])))[0])
+async function listingPage(request, env, ctx, url, id) {
+  // the listing comes from the (edge-cached) list, not the database: no query on the way to the first paint
+  const fw = new URL('/firmware.json', url.origin)
+  const [page, list] = await Promise.all([env.ASSETS.fetch(new Request(`${url.origin}/`)), listResponse(new Request(fw), env, ctx, fw).then((r) => r.json())])
+  const e = list.entries.find((x) => x.id === id)
+  if (!e) return page // (the site says it's not found, or shows a hidden one to its makers)
+  // just this listing inlined, so its sheet opens at once; the front end fetches the rest of the list after
+  const { entries, ...rest } = list
+  const boot = JSON.stringify({ ...rest, entries: [e], partial: true }).replace(/<\//g, '<\\/')
   const abs = (u) => (u && u.startsWith('/') ? url.origin + u : u)
   const image = abs(e.cover) || `${url.origin}/og.png?v=2`
   const square = e.coverIsScreen || !e.cover // a 240x240 screen (or none): the small card fits it better
@@ -1543,7 +1547,8 @@ async function listingPage(request, env, url, id) {
       }
     })
     .on('head', { element: (el) => el.append(`<link rel="canonical" href="${link}" />`, { html: true }) })
-    .transform(new Response(page.body, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'public, max-age=300' } }))
+    .on('body', { element: (el) => el.append(`<script type="application/json" id="fw">${boot}</script>`, { html: true }) })
+    .transform(new Response(page.body, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': env.LOCAL ? 'no-store' : 'public, max-age=300' } }))
 }
 
 // --- device IDs ("FM-1_745") ------------------------------------------------

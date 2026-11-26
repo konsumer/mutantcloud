@@ -587,10 +587,14 @@ function detail(e) {
   else if (!ME.user) note = `<p class="note">Is this yours? <a href="/auth/login?next=${next}">Sign in with GitHub</a> to edit it.${e.repo ? ` Owners of <b>${esc(e.repo)}</b> can always manage it.` : ''}</p>`
   else note = `<p class="note">Only ${e.repo ? `the owner of <b>${esc(e.repo)}</b>, people who can push to it,` : ''} listed managers${e.managers.length ? ` (${e.managers.map(esc).join(', ')})` : ''} and admins can edit this. Ask one to add you as a manager.</p>`
 
+  // drawn again once the whole list (or who you are) arrives: keep where they were in it
+  const again = dlg.open && $('#dlg-title')?.dataset.id === e.id
+  const keep = again && { top: dlg.scrollTop, history: $('#history')?.innerHTML, shown: !!$('#history details')?.open }
+
   const rel = (r, label) => (r ? `<dt>${label}</dt><dd><span class="mono">${esc(r.version || '')}</span> ${r.date ? `· ${fmtDate(r.date)} <span class="by">(${when(r.date)})</span>` : ''} ${r.url ? `· <a href="${safe(r.url)}" target="_blank" rel="noopener">notes</a>` : ''}</dd>` : '')
 
   open(
-    `<h2 id="dlg-title">${esc(e.name)}</h2>
+    `<h2 id="dlg-title" data-id="${esc(e.id)}">${esc(e.name)}</h2>
     <p class="by">by ${authorLink(e)}${e.authorUrl ? ` · <a href="${safe(e.authorUrl)}" target="_blank" rel="noopener">${e.github ? 'GitHub' : 'website'} ↗</a>` : ''}</p>
     ${e.cover ? `<div class="shots"><img class="shot${e.coverIsScreen ? ' screen' : ''}" src="${safe(e.cover)}" ${fallback(e)} alt="" loading="lazy" onerror="picFail(this)" /></div>` : ''}
     ${e.description ? `<p class="lead">${esc(e.description)}</p>` : ''}
@@ -632,7 +636,11 @@ function detail(e) {
     ${note}`,
     hue(e.id)
   )
-  if (e.versions > 1) loadHistory(e)
+  if (keep?.history) {
+    $('#history').innerHTML = keep.history
+    if (keep.shown) $('#history details').open = true
+  } else if (e.versions > 1 && !again) loadHistory(e)
+  if (keep) dlg.scrollTop = keep.top
   wireCopy()
 }
 
@@ -1322,7 +1330,12 @@ try {
 async function firmware() {
   const boot = BOOT
   BOOT = null
-  return boot || (await fetch('/firmware.json', { cache: 'no-store' })).json()
+  // a listing's own page inlines only that listing: open its sheet now, then get the rest of the list
+  if (boot?.partial) {
+    DATA = boot
+    route()
+  }
+  return boot && !boot.partial ? boot : (await fetch('/firmware.json', { cache: 'no-store' })).json()
 }
 
 async function reload() {
